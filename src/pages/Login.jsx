@@ -10,15 +10,21 @@ export default function Login() {
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
 
+  // Get API URL from environment variable with fallback
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://dashboard-3mgg.onrender.com';
+
   const submit = async (e) => {
     e.preventDefault();
     setLoading(true);
     
     try {
+      console.log('🔗 Connecting to:', API_BASE_URL); // Debug log
+      
       const res = await axios.post(
-        (localStorage.getItem('API_URL') || 'http://localhost:4000') + '/auth/login', 
+        `${API_BASE_URL}/auth/login`, 
         { username, password }
       );
+      
       const { token, user } = res.data;
       login(token, user);
       
@@ -40,6 +46,7 @@ export default function Login() {
           navigate('/');
       }
     } catch (err) {
+      console.error('❌ Login error:', err);
       alert(err.response?.data?.error || err.message || 'Login failed');
     } finally {
       setLoading(false);
