@@ -16,6 +16,9 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  // Get API URL from environment variable with fallback
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://dashboard-3mgg.onrender.com';
+
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -38,8 +41,10 @@ export default function Register() {
 
     setLoading(true);
     try {
+      console.log('🔗 Connecting to:', API_BASE_URL); // Debug log
+      
       const res = await axios.post(
-        (localStorage.getItem('API_URL') || 'http://localhost:4000') + '/auth/register', 
+        `${API_BASE_URL}/auth/register`, 
         {
           username: formData.username,
           email: formData.email,
@@ -54,6 +59,7 @@ export default function Register() {
       alert('Registration successful! Please login.');
       navigate('/login');
     } catch (err) {
+      console.error('❌ Registration error:', err);
       alert(err.response?.data?.error || err.message || 'Registration failed');
     } finally {
       setLoading(false);
