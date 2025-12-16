@@ -2,74 +2,150 @@ import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { AuthContext } from '../../auth/AuthContext';
 
-export default function ProcurementReconciliation() {
-  const [supplyItems, setSupplyItems] = useState([]);
-  const [showOrderForm, setShowOrderForm] = useState(false);
-  const [timeFrame, setTimeFrame] = useState('30days'); // 7days, 14days, 30days
-  const [activeTab, setActiveTab] = useState('supply'); // supply, readiness, risks, costs
+export default function FarmerMyFarm() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const { user } = useContext(AuthContext);
+  
+  // Mock data structure based on PDF
+  const [farmMetrics, setFarmMetrics] = useState({
+    farmers: {
+      perVariety: {
+        market: 0,
+        challenger: 0
+      },
+      perLocation: {
+        jan: 0,
+        feb: 0,
+        march: 0
+      }
+    },
+    acreage: {
+      perVariety: {
+        market: 0,
+        challenger: 0
+      },
+      perLocationPerformance: {
+        market: 0,
+        challenger: 0
+      }
+    },
+    supply: {
+      readiness: 0,
+      supplyDemandMatching: {
+        contracts: 0,
+        value: 0,
+        forecasts: [],
+        qualityReports: [],
+        supplierRanking: []
+      }
+    },
+    financial: {
+      projectedExpenses: 0,
+      contractValue: 0,
+      marketPrices: {},
+      paymentStatus: {}
+    },
+    sourcingLog: [],
+    contracts: [],
+    supplyPlans: []
+  });
 
   useEffect(() => {
-    fetchProcurementData();
+    fetchFarmerData();
   }, []);
 
-  const fetchProcurementData = async () => {
+  const fetchFarmerData = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:4000/api/dashboard/procurement', {
+      
+      if (!token) {
+        setError('No authentication token found. Please log in again.');
+        setLoading(false);
+        return;
+      }
+
+      const response = await axios.get('http://localhost:4000/api/dashboard/farmer', {
         headers: { Authorization: `Bearer ${token}` }
       });
+      
       setData(response.data);
+      setError(null);
+      
+      // Update farm metrics from API response
+      if (response.data.farmMetrics) {
+        setFarmMetrics(prev => ({
+          ...prev,
+          ...response.data.farmMetrics
+        }));
+      }
+      
     } catch (error) {
-      console.error('Error fetching procurement data:', error);
-      // Fallback to mock data if API fails
-      setData({
-        demandSupply: {
-          totalDemand: 25000,
-          contractedSupply: 18000,
-          deficit: 7000,
-          surplus: 0,
-          backupFarmersAvailable: 8,
-          farmMallCapacity: 5000,
+      console.error('Error fetching farmer data:', error);
+      
+      if (error.response?.status === 401) {
+        setError('Authentication failed. Please log in again.');
+      } else {
+        setError('Failed to load farm data. Please try again.');
+      }
+      
+      // Use enhanced mock data as fallback
+      setFarmMetrics({
+        farmers: {
+          perVariety: {
+            market: 150,
+            challenger: 85
+          },
+          perLocation: {
+            jan: 45,
+            feb: 52,
+            march: 58
+          }
         },
-        harvestReadiness: {
-          ready7days: [
-            { farmer: 'Peter Ornondi', location: 'Narok', volume: 18000, distance: '45km', status: 'ready' },
-            { farmer: 'John Kamau', location: 'Nakuru', volume: 12000, distance: '85km', status: 'ready' },
-          ],
-          ready14days: [
-            { farmer: 'Sarah Muthoni', location: 'Molo', volume: 15000, distance: '120km', status: 'pending' },
-            { farmer: 'James Omondi', location: 'Kericho', volume: 8000, distance: '95km', status: 'pending' },
-          ],
-          ready30days: [
-            { farmer: 'Mary Wanjiku', location: 'Narok', volume: 22000, distance: '50km', status: 'on-track' },
-            { farmer: 'David Kipchoge', location: 'Nakuru', volume: 16000, distance: '80km', status: 'on-track' },
-          ]
+        acreage: {
+          perVariety: {
+            market: 1200,
+            challenger: 850
+          },
+          perLocationPerformance: {
+            market: 92,
+            challenger: 88
+          }
         },
-        costIndicators: {
-          costPerTon: 350,
-          trend: -5.2,
-          emergencyProcurement: 45000,
-          potentialSavings: 28000,
-          budgetUtilization: 78
+        supply: {
+          readiness: 85,
+          supplyDemandMatching: {
+            contracts: 24,
+            value: 185000,
+            forecasts: ['Q1: +15%', 'Q2: +8%'],
+            qualityReports: ['Report 1', 'Report 2'],
+            supplierRanking: ['Supplier A: 95%', 'Supplier B: 88%']
+          }
         },
-        riskAlerts: [
-          { type: 'shortfall', region: 'Nakuru', severity: 'high', message: '2,000 kg deficit predicted', impact: 'Medium' },
-          { type: 'weather', region: 'Molo', severity: 'medium', message: 'Heavy rains may delay harvest', impact: 'High' },
-          { type: 'progress', region: 'Narok West', severity: 'low', message: '3 farmers behind schedule', impact: 'Low' },
+        financial: {
+          projectedExpenses: 45000,
+          contractValue: 185000,
+          marketPrices: {
+            shangi: 120,
+            challenger: 110
+          },
+          paymentStatus: {
+            paid: 125000,
+            pending: 60000
+          }
+        },
+        sourcingLog: [
+          { date: '2024-12-15', name: 'John Doe', variety: 'Shangi', quantityDelivered: 500, qtyAccepted: 490, qtyRejected: 10, reason: 'Quality', price: 120, source: 'Contracted', score: 95 },
+          { date: '2024-12-10', name: 'Jane Smith', variety: 'Challenger', quantityDelivered: 300, qtyAccepted: 295, qtyRejected: 5, reason: 'Size', price: 110, source: 'FM', score: 92 }
         ],
-        supplyPlan: [
-          { week: 'Week 51', demand: 12000, supply: 10500, deficit: 1500, status: 'critical' },
-          { week: 'Week 52', demand: 13000, supply: 12000, deficit: 1000, status: 'warning' },
-          { week: 'Week 1', demand: 14000, supply: 15000, surplus: 1000, status: 'good' },
-          { week: 'Week 2', demand: 13500, supply: 16000, surplus: 2500, status: 'good' },
+        contracts: [
+          { farmer: 'John Doe', fulfilled: true, qtyFulfilled: 490, paymentStatus: 'Paid' },
+          { farmer: 'Jane Smith', fulfilled: false, qtyFulfilled: 0, paymentStatus: 'Pending' }
         ],
-        backupFarmers: [
-          { name: 'Farm Mall Reserve A', location: 'Nakuru', capacity: 2000, cost: 380, leadTime: '3 days' },
-          { name: 'Farm Mall Reserve B', location: 'Narok', capacity: 1500, cost: 370, leadTime: '2 days' },
-          { name: 'Farm Mall Reserve C', location: 'Molo', capacity: 1800, cost: 390, leadTime: '4 days' },
+        supplyPlans: [
+          { farmer: 'John Doe', readiness: 'High', week: 'Week 1' },
+          { farmer: 'Jane Smith', readiness: 'Medium', week: 'Week 2' }
         ]
       });
     } finally {
@@ -77,818 +153,306 @@ export default function ProcurementReconciliation() {
     }
   };
 
+  const handleRetry = () => {
+    setLoading(true);
+    setError(null);
+    fetchFarmerData();
+  };
+
   if (loading) {
     return (
       <div className="p-6 flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading procurement data...</p>
+          <p className="mt-4 text-gray-600">Loading farm data...</p>
         </div>
       </div>
     );
   }
 
-  if (!data) {
+  if (error) {
     return (
       <div className="p-6 text-center">
-        <p className="text-red-600">Failed to load procurement data</p>
-        <button 
-          onClick={fetchProcurementData}
-          className="mt-4 bg-blue-600 text-white px-4 py-2 rounded"
-        >
-          Try Again
-        </button>
-      </div>
-    );
-  }
-
-  // Calculate totals using data from API
-  const totalReadyFarmers = [
-    ...data.harvestReadiness.ready7days,
-    ...data.harvestReadiness.ready14days,
-    ...data.harvestReadiness.ready30days
-  ].length;
-
-  const totalReadyVolume = [
-    ...data.harvestReadiness.ready7days,
-    ...data.harvestReadiness.ready14days,
-    ...data.harvestReadiness.ready30days
-  ].reduce((sum, farmer) => sum + farmer.volume, 0);
-
-  return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
-        <div>
-          <h1 className="text-2xl font-bold">Procurement Reconciliation Dashboard</h1>
-          <p className="text-gray-600">Demand-supply planning and risk management</p>
-        </div>
-        <div className="mt-4 md:mt-0 flex space-x-3">
-          <select 
-            value={timeFrame}
-            onChange={(e) => setTimeFrame(e.target.value)}
-            className="border rounded px-3 py-1"
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
+          <h3 className="text-lg font-semibold text-red-700 mb-2">Error Loading Data</h3>
+          <p className="text-red-600 mb-4">{error}</p>
+          <button 
+            onClick={handleRetry}
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
           >
-            <option value="7days">Next 7 Days</option>
-            <option value="14days">Next 14 Days</option>
-            <option value="30days">Next 30 Days</option>
-          </select>
-          <button className="bg-green-600 text-white px-4 py-2 rounded">
-            Generate Procurement Report
+            Try Again
           </button>
         </div>
       </div>
+    );
+  }
 
-      {/* Navigation Tabs */}
-      <div className="flex border-b">
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Farm Management Dashboard</h1>
         <button 
-          onClick={() => setActiveTab('supply')}
-          className={`px-4 py-2 font-medium ${activeTab === 'supply' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-600'}`}
+          onClick={fetchFarmerData}
+          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 flex items-center"
         >
-          Demand-Supply
-        </button>
-        <button 
-          onClick={() => setActiveTab('readiness')}
-          className={`px-4 py-2 font-medium ${activeTab === 'readiness' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-600'}`}
-        >
-          Harvest Readiness
-        </button>
-        <button 
-          onClick={() => setActiveTab('risks')}
-          className={`px-4 py-2 font-medium ${activeTab === 'risks' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-600'}`}
-        >
-          Risk Alerts
-        </button>
-        <button 
-          onClick={() => setActiveTab('costs')}
-          className={`px-4 py-2 font-medium ${activeTab === 'costs' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-600'}`}
-        >
-          Cost Indicators
+          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Refresh
         </button>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h3 className="font-semibold text-gray-700">Total Demand</h3>
-          <p className="text-2xl">{data.demandSupply.totalDemand.toLocaleString()} kg</p>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h3 className="font-semibold text-gray-700">Contracted Supply</h3>
-          <p className="text-2xl text-green-600">{data.demandSupply.contractedSupply.toLocaleString()} kg</p>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h3 className="font-semibold text-gray-700">Current Deficit</h3>
-          <p className="text-2xl text-red-600">{data.demandSupply.deficit.toLocaleString()} kg</p>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h3 className="font-semibold text-gray-700">Backup Farmers</h3>
-          <p className="text-2xl text-blue-600">{data.demandSupply.backupFarmersAvailable}</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Demand-Supply Reconciliation Panel */}
-          {activeTab === 'supply' && (
-            <section className="bg-white p-6 rounded-lg shadow">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">Demand-Supply Reconciliation</h2>
-                <button className="text-blue-600 hover:underline">View Full Report</button>
+      {/* Farmers Section */}
+      <section className="bg-white p-6 rounded-lg shadow">
+        <h2 className="text-xl font-bold mb-4">Farmers</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Per Variety */}
+          <div>
+            <h3 className="font-semibold text-lg mb-3">Per Variety</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 bg-blue-50 rounded-lg">
+                <p className="text-sm text-gray-600">Market</p>
+                <p className="text-2xl font-bold">{farmMetrics.farmers.perVariety.market}</p>
               </div>
-              
-              {/* Supply-Demand Balance */}
-              <div className="mb-6">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="font-medium">Supply vs Demand Balance</span>
-                  <span className={`font-bold ${data.demandSupply.deficit > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                    {data.demandSupply.deficit > 0 ? 'DEFICIT' : 'SURPLUS'}
-                  </span>
-                </div>
-                <div className="flex h-8 rounded-lg overflow-hidden">
-                  <div 
-                    className="bg-green-500" 
-                    style={{width: `${(data.demandSupply.contractedSupply / data.demandSupply.totalDemand) * 100}%`}}
-                    title={`Contracted Supply: ${data.demandSupply.contractedSupply}kg`}
-                  ></div>
-                  <div 
-                    className="bg-red-500" 
-                    style={{width: `${(data.demandSupply.deficit / data.demandSupply.totalDemand) * 100}%`}}
-                    title={`Deficit: ${data.demandSupply.deficit}kg`}
-                  ></div>
-                </div>
-                <div className="flex justify-between text-sm text-gray-600 mt-1">
-                  <span>Supply: {data.demandSupply.contractedSupply.toLocaleString()}kg</span>
-                  <span>Deficit: {data.demandSupply.deficit.toLocaleString()}kg</span>
-                </div>
-              </div>
-              
-              {/* Recommended Outsourcing */}
-              <div className="mb-6">
-                <h3 className="font-bold mb-3">Recommended Outsourcing Volumes</h3>
-                <div className="p-4 bg-yellow-50 rounded-lg">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="font-semibold">Farm Mall Backup Capacity</p>
-                      <p className="text-sm text-gray-600">{data.demandSupply.farmMallCapacity.toLocaleString()} kg available</p>
-                    </div>
-                    <button className="bg-blue-600 text-white px-4 py-2 rounded">
-                      Allocate Now
-                    </button>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Supply Planning Table */}
-              <div>
-                <h3 className="font-bold mb-3">Weekly Supply Planning</h3>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full">
-                    <thead>
-                      <tr className="bg-gray-100">
-                        <th className="py-3 px-4 text-left">Week</th>
-                        <th className="py-3 px-4 text-left">Demand</th>
-                        <th className="py-3 px-4 text-left">Supply</th>
-                        <th className="py-3 px-4 text-left">Balance</th>
-                        <th className="py-3 px-4 text-left">Status</th>
-                        <th className="py-3 px-4 text-left">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.supplyPlan.map((week, index) => (
-                        <tr key={index} className="border-b hover:bg-gray-50">
-                          <td className="py-3 px-4">{week.week}</td>
-                          <td className="py-3 px-4">{week.demand.toLocaleString()} kg</td>
-                          <td className="py-3 px-4">{week.supply.toLocaleString()} kg</td>
-                          <td className="py-3 px-4">
-                            {week.deficit ? (
-                              <span className="text-red-600">-{week.deficit.toLocaleString()} kg</span>
-                            ) : (
-                              <span className="text-green-600">+{week.surplus.toLocaleString()} kg</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className={`px-2 py-1 rounded text-xs ${
-                              week.status === 'critical' ? 'bg-red-100 text-red-800' :
-                              week.status === 'warning' ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-green-100 text-green-800'
-                            }`}>
-                              {week.status.toUpperCase()}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4">
-                            <button className="text-blue-600 text-sm hover:underline">
-                              Plan Supply
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* Harvest Readiness & Intake Planning */}
-          {activeTab === 'readiness' && (
-            <section className="bg-white p-6 rounded-lg shadow">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">Harvest Readiness & Intake Planning</h2>
-                <div className="flex space-x-2">
-                  <span className="px-3 py-1 bg-green-100 text-green-800 rounded text-sm">
-                    {totalReadyFarmers} Farmers Ready
-                  </span>
-                  <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded text-sm">
-                    {totalReadyVolume.toLocaleString()} kg Total
-                  </span>
-                </div>
-              </div>
-              
-              {/* Timeframe Tabs */}
-              <div className="flex mb-6">
-                <button 
-                  className={`px-4 py-2 ${timeFrame === '7days' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100'}`}
-                  onClick={() => setTimeFrame('7days')}
-                >
-                  Next 7 Days
-                </button>
-                <button 
-                  className={`px-4 py-2 ${timeFrame === '14days' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100'}`}
-                  onClick={() => setTimeFrame('14days')}
-                >
-                  Next 14 Days
-                </button>
-                <button 
-                  className={`px-4 py-2 ${timeFrame === '30days' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100'}`}
-                  onClick={() => setTimeFrame('30days')}
-                >
-                  Next 30 Days
-                </button>
-              </div>
-              
-              {/* Farmers Ready Table */}
-              <div className="overflow-x-auto">
-                <table className="min-w-full">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className="py-3 px-4 text-left">Farmer Name</th>
-                      <th className="py-3 px-4 text-left">Location</th>
-                      <th className="py-3 px-4 text-left">Volume</th>
-                      <th className="py-3 px-4 text-left">Distance</th>
-                      <th className="py-3 px-4 text-left">Readiness</th>
-                      <th className="py-3 px-4 text-left">Schedule Pickup</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.harvestReadiness[`ready${timeFrame}`].map((farmer, index) => (
-                      <tr key={index} className="border-b hover:bg-gray-50">
-                        <td className="py-3 px-4 font-medium">{farmer.farmer}</td>
-                        <td className="py-3 px-4">
-                          <div>{farmer.location}</div>
-                          <div className="text-xs text-gray-500">GPS: 1.2345, 35.6789</div>
-                        </td>
-                        <td className="py-3 px-4">{farmer.volume.toLocaleString()} kg</td>
-                        <td className="py-3 px-4">{farmer.distance}</td>
-                        <td className="py-3 px-4">
-                          <span className={`px-2 py-1 rounded text-xs ${
-                            farmer.status === 'ready' ? 'bg-green-100 text-green-800' :
-                            farmer.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-blue-100 text-blue-800'
-                          }`}>
-                            {farmer.status === 'ready' ? 'Ready Now' : 
-                             farmer.status === 'pending' ? 'Pending' : 'On Track'}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4">
-                          <button className="bg-blue-600 text-white px-3 py-1 rounded text-sm">
-                            Schedule
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              
-              {/* Delivery Planning */}
-              <div className="mt-6 p-4 bg-gray-50 rounded">
-                <h3 className="font-bold mb-2">Delivery Timelines & Logistics</h3>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="p-3 bg-white rounded">
-                    <p className="font-medium">Nearest Collection Point</p>
-                    <p className="text-sm text-gray-600">Nakuru Depot - 35km</p>
-                  </div>
-                  <div className="p-3 bg-white rounded">
-                    <p className="font-medium">Estimated Transport Cost</p>
-                    <p className="text-sm text-gray-600">KES 45,000</p>
-                  </div>
-                  <div className="p-3 bg-white rounded">
-                    <p className="font-medium">Recommended Schedule</p>
-                    <p className="text-sm text-gray-600">Dec 28-30, 2024</p>
-                  </div>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* Procurement Risk Alerts */}
-          {activeTab === 'risks' && (
-            <section className="bg-white p-6 rounded-lg shadow">
-              <h2 className="text-xl font-bold mb-4">Procurement Risk Alerts</h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Risk Cards */}
-                <div className="space-y-4">
-                  {data.riskAlerts.map((alert, index) => (
-                    <div key={index} className={`p-4 rounded-lg border ${
-                      alert.severity === 'high' ? 'bg-red-50 border-red-200' :
-                      alert.severity === 'medium' ? 'bg-yellow-50 border-yellow-200' :
-                      'bg-orange-50 border-orange-200'
-                    }`}>
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex items-center">
-                          <div className={`w-3 h-3 rounded-full mr-2 ${
-                            alert.severity === 'high' ? 'bg-red-500' :
-                            alert.severity === 'medium' ? 'bg-yellow-500' : 'bg-orange-500'
-                          }`}></div>
-                          <span className="font-bold">{alert.type.toUpperCase()}</span>
-                        </div>
-                        <span className="px-2 py-1 bg-gray-100 rounded text-xs">
-                          {alert.region}
-                        </span>
-                      </div>
-                      <p className="mb-2">{alert.message}</p>
-                      <div className="flex justify-between text-sm">
-                        <span>Impact: <strong>{alert.impact}</strong></span>
-                        <button className="text-blue-600 hover:underline">
-                          View Details
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                
-                {/* Risk & Vulnerability Dashboard */}
-                <div className="space-y-4">
-                  <div className="p-4 bg-red-50 rounded-lg">
-                    <h3 className="font-bold text-red-700 mb-2">Underperforming Regions</h3>
-                    <ul className="space-y-2">
-                      <li className="flex justify-between items-center">
-                        <span>Nakuru North</span>
-                        <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-xs">-15% below target</span>
-                      </li>
-                      <li className="flex justify-between items-center">
-                        <span>Molo Central</span>
-                        <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-xs">-12% below target</span>
-                      </li>
-                    </ul>
-                  </div>
-                  
-                  <div className="p-4 bg-yellow-50 rounded-lg">
-                    <h3 className="font-bold text-yellow-700 mb-2">Weather Risk Zones</h3>
-                    <ul className="space-y-2">
-                      <li className="flex justify-between items-center">
-                        <span>Narok West</span>
-                        <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs">Drought Alert</span>
-                      </li>
-                      <li className="flex justify-between items-center">
-                        <span>Molo Highlands</span>
-                        <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs">Flood Risk</span>
-                      </li>
-                    </ul>
-                  </div>
-                  
-                  <div className="p-4 bg-orange-50 rounded-lg">
-                    <h3 className="font-bold text-orange-700 mb-2">Pest/Disease Hotspots</h3>
-                    <ul className="space-y-2">
-                      <li className="flex justify-between items-center">
-                        <span>Nakuru Central</span>
-                        <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded text-xs">Aphid Outbreak</span>
-                      </li>
-                      <li className="flex justify-between items-center">
-                        <span>Kericho</span>
-                        <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded text-xs">Late Blight</span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Farmers Lagging Behind */}
-              <div className="mt-6 p-4 bg-purple-50 rounded">
-                <h3 className="font-bold text-purple-700 mb-2">Farmers Lagging Behind Key Crop Stages</h3>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full">
-                    <thead>
-                      <tr className="bg-purple-100">
-                        <th className="py-2 px-4 text-left">Farmer</th>
-                        <th className="py-2 px-4 text-left">Region</th>
-                        <th className="py-2 px-4 text-left">Crop</th>
-                        <th className="py-2 px-4 text-left">Stage Delay</th>
-                        <th className="py-2 px-4 text-left">Expected Impact</th>
-                        <th className="py-2 px-4 text-left">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr className="border-b">
-                        <td className="py-2 px-4">John Kamau</td>
-                        <td className="py-2 px-4">Nakuru</td>
-                        <td className="py-2 px-4">Maize</td>
-                        <td className="py-2 px-4">-14 days</td>
-                        <td className="py-2 px-4">-800 kg</td>
-                        <td className="py-2 px-4">
-                          <button className="text-blue-600 text-sm hover:underline">
-                            Arrange Support
-                          </button>
-                        </td>
-                      </tr>
-                      <tr className="border-b">
-                        <td className="py-2 px-4">Sarah Muthoni</td>
-                        <td className="py-2 px-4">Molo</td>
-                        <td className="py-2 px-4">Potatoes</td>
-                        <td className="py-2 px-4">-7 days</td>
-                        <td className="py-2 px-4">-500 kg</td>
-                        <td className="py-2 px-4">
-                          <button className="text-blue-600 text-sm hover:underline">
-                            Monitor
-                          </button>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* Cost & Price Indicators */}
-          {activeTab === 'costs' && (
-            <section className="bg-white p-6 rounded-lg shadow">
-              <h2 className="text-xl font-bold mb-4">Cost & Price Indicators</h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                {/* Cost Indicators */}
-                <div className="space-y-4">
-                  <div className="p-4 bg-blue-50 rounded-lg">
-                    <div className="flex justify-between items-center mb-2">
-                      <h3 className="font-bold text-blue-700">Cost per Ton</h3>
-                      <span className={`text-lg font-bold ${data.costIndicators.trend < 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        KES {data.costIndicators.costPerTon}
-                      </span>
-                    </div>
-                    <p className="text-sm">
-                      Trend: <span className={data.costIndicators.trend < 0 ? 'text-green-600' : 'text-red-600'}>
-                        {data.costIndicators.trend}% from last month
-                      </span>
-                    </p>
-                    <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
-                      <div 
-                        className="bg-blue-500 h-2 rounded-full" 
-                        style={{width: `${data.costIndicators.budgetUtilization}%`}}
-                      ></div>
-                    </div>
-                    <p className="text-xs text-gray-600 mt-1">Budget utilization: {data.costIndicators.budgetUtilization}%</p>
-                  </div>
-                  
-                  <div className="p-4 bg-red-50 rounded-lg">
-                    <div className="flex justify-between items-center">
-                      <h3 className="font-bold text-red-700">Emergency Procurement Exposure</h3>
-                      <span className="text-lg font-bold">KES {data.costIndicators.emergencyProcurement.toLocaleString()}</span>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-1">Potential cost for urgent supply gaps</p>
-                  </div>
-                </div>
-                
-                {/* Savings Potential */}
-                <div className="p-4 bg-green-50 rounded-lg">
-                  <h3 className="font-bold text-green-700 mb-2">Savings Potential</h3>
-                  <div className="space-y-3">
-                    <div>
-                      <div className="flex justify-between mb-1">
-                        <span>From Improved Forecasting</span>
-                        <span className="font-bold">KES {data.costIndicators.potentialSavings.toLocaleString()}</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div className="bg-green-500 h-2 rounded-full" style={{width: '65%'}}></div>
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between mb-1">
-                        <span>From Bulk Purchasing</span>
-                        <span className="font-bold">KES 15,000</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div className="bg-green-500 h-2 rounded-full" style={{width: '45%'}}></div>
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between mb-1">
-                        <span>From Direct Farmer Contracts</span>
-                        <span className="font-bold">KES 8,000</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div className="bg-green-500 h-2 rounded-full" style={{width: '30%'}}></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Market Price Trends */}
-              <div>
-                <h3 className="font-bold mb-3">Market Price Trends</h3>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full">
-                    <thead>
-                      <tr className="bg-gray-100">
-                        <th className="py-2 px-4 text-left">Commodity</th>
-                        <th className="py-2 px-4 text-left">Current Price</th>
-                        <th className="py-2 px-4 text-left">Weekly Change</th>
-                        <th className="py-2 px-4 text-left">Market Trend</th>
-                        <th className="py-2 px-4 text-left">Recommendation</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr className="border-b">
-                        <td className="py-2 px-4 font-medium">Potatoes (Shangi)</td>
-                        <td className="py-2 px-4">KES 45/kg</td>
-                        <td className="py-2 px-4 text-green-600">+3.2%</td>
-                        <td className="py-2 px-4">
-                          <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">Rising</span>
-                        </td>
-                        <td className="py-2 px-4">
-                          <span className="text-green-600">Buy Now</span>
-                        </td>
-                      </tr>
-                      <tr className="border-b">
-                        <td className="py-2 px-4 font-medium">Maize</td>
-                        <td className="py-2 px-4">KES 38/kg</td>
-                        <td className="py-2 px-4 text-red-600">-1.5%</td>
-                        <td className="py-2 px-4">
-                          <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs">Stable</span>
-                        </td>
-                        <td className="py-2 px-4">
-                          <span className="text-yellow-600">Monitor</span>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </section>
-          )}
-        </div>
-
-        {/* Right Sidebar */}
-        <div className="space-y-6">
-          {/* Backup Farmers from Farm Mall */}
-          <section className="bg-white p-6 rounded-lg shadow">
-            <h2 className="text-xl font-bold mb-4">Available Backup Farmers</h2>
-            <div className="space-y-4">
-              {data.backupFarmers.map((farmer, index) => (
-                <div key={index} className="p-4 border rounded-lg hover:bg-gray-50">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-bold">{farmer.name}</h3>
-                    <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
-                      {farmer.capacity} kg
-                    </span>
-                  </div>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Location:</span>
-                      <span>{farmer.location}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Cost per kg:</span>
-                      <span className="font-medium">KES {farmer.cost}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Lead Time:</span>
-                      <span>{farmer.leadTime}</span>
-                    </div>
-                  </div>
-                  <button className="w-full mt-3 bg-green-600 text-white py-2 rounded hover:bg-green-700">
-                    Reserve Capacity
-                  </button>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* Quick Actions */}
-          <section className="bg-white p-6 rounded-lg shadow">
-            <h2 className="text-xl font-bold mb-4">Quick Actions</h2>
-            <div className="space-y-3">
-              <button 
-                onClick={() => setShowOrderForm(true)}
-                className="w-full bg-blue-600 text-white py-3 rounded hover:bg-blue-700 flex items-center justify-center"
-              >
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                Create Supply Order
-              </button>
-              <button className="w-full bg-green-600 text-white py-3 rounded hover:bg-green-700 flex items-center justify-center">
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Approve Harvest Schedule
-              </button>
-              <button className="w-full bg-purple-600 text-white py-3 rounded hover:bg-purple-700 flex items-center justify-center">
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-                Generate Procurement Report
-              </button>
-              <button className="w-full bg-yellow-600 text-white py-3 rounded hover:bg-yellow-700 flex items-center justify-center">
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Update Delivery Timelines
-              </button>
-            </div>
-          </section>
-
-          {/* Production Capacity */}
-          <section className="bg-white p-6 rounded-lg shadow">
-            <h2 className="text-xl font-bold mb-4">Production & Processing Capacity</h2>
-            <div className="space-y-4">
-              <div>
-                <div className="flex justify-between mb-1">
-                  <span>Current Daily Capacity</span>
-                  <span>420 kg/day</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-3">
-                  <div className="bg-blue-500 h-3 rounded-full" style={{width: '84%'}}></div>
-                </div>
-              </div>
-              <div>
-                <div className="flex justify-between mb-1">
-                  <span>Target Capacity</span>
-                  <span>500 kg/day</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-3">
-                  <div className="bg-green-500 h-3 rounded-full" style={{width: '100%'}}></div>
-                </div>
-              </div>
-              <div className="pt-4 border-t">
-                <p className="font-medium">Capacity Utilization</p>
-                <div className="grid grid-cols-3 gap-2 mt-2 text-center">
-                  <div className="p-2 bg-blue-50 rounded">
-                    <p className="font-bold">84%</p>
-                    <p className="text-xs">This Week</p>
-                  </div>
-                  <div className="p-2 bg-green-50 rounded">
-                    <p className="font-bold">92%</p>
-                    <p className="text-xs">Peak</p>
-                  </div>
-                  <div className="p-2 bg-yellow-50 rounded">
-                    <p className="font-bold">68%</p>
-                    <p className="text-xs">Average</p>
-                  </div>
-                </div>
+              <div className="p-4 bg-green-50 rounded-lg">
+                <p className="text-sm text-gray-600">Challenger</p>
+                <p className="text-2xl font-bold">{farmMetrics.farmers.perVariety.challenger}</p>
               </div>
             </div>
-          </section>
-
-          {/* Recent Activities */}
-          <section className="bg-white p-6 rounded-lg shadow">
-            <h2 className="text-xl font-bold mb-4">Recent Procurement Activities</h2>
-            <div className="space-y-3">
-              <div className="p-3 bg-gray-50 rounded">
-                <p className="font-medium">Order PO-1234 Approved</p>
-                <p className="text-sm text-gray-600">2,000 kg maize from Farm Mall</p>
-                <p className="text-xs text-gray-500">2 hours ago</p>
+          </div>
+          
+          {/* Per Location */}
+          <div>
+            <h3 className="font-semibold text-lg mb-3">Per Location</h3>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="p-4 bg-gray-50 rounded-lg text-center">
+                <p className="text-sm text-gray-600">Jan</p>
+                <p className="text-xl font-bold">{farmMetrics.farmers.perLocation.jan}</p>
               </div>
-              <div className="p-3 bg-gray-50 rounded">
-                <p className="font-medium">Harvest Schedule Updated</p>
-                <p className="text-sm text-gray-600">Narok region collection rescheduled</p>
-                <p className="text-xs text-gray-500">Yesterday</p>
+              <div className="p-4 bg-gray-50 rounded-lg text-center">
+                <p className="text-sm text-gray-600">Feb</p>
+                <p className="text-xl font-bold">{farmMetrics.farmers.perLocation.feb}</p>
               </div>
-              <div className="p-3 bg-gray-50 rounded">
-                <p className="font-medium">New Supplier Onboarded</p>
-                <p className="text-sm text-gray-600">Green Valley Farms added</p>
-                <p className="text-xs text-gray-500">2 days ago</p>
+              <div className="p-4 bg-gray-50 rounded-lg text-center">
+                <p className="text-sm text-gray-600">March</p>
+                <p className="text-xl font-bold">{farmMetrics.farmers.perLocation.march}</p>
               </div>
             </div>
-          </section>
-        </div>
-      </div>
-
-      {/* Order Form Modal */}
-      {showOrderForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg w-full max-w-2xl">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-semibold">Create Supply Order</h3>
-              <button 
-                onClick={() => setShowOrderForm(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                ✕
-              </button>
-            </div>
-            
-            <form className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-medium mb-1">Supplier Type</label>
-                  <select className="w-full p-3 border rounded" required>
-                    <option value="">Select Supplier Type</option>
-                    <option value="farm_mall">Farm Mall Backup</option>
-                    <option value="external">External Supplier</option>
-                    <option value="contracted">Contracted Farmer</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-medium mb-1">Select Supplier</label>
-                  <select className="w-full p-3 border rounded" required>
-                    <option value="">Select Supplier</option>
-                    <option value="farm_mall_a">Farm Mall Reserve A</option>
-                    <option value="farm_mall_b">Farm Mall Reserve B</option>
-                    <option value="farm_mall_c">Farm Mall Reserve C</option>
-                  </select>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-medium mb-1">Volume (kg)</label>
-                  <input 
-                    type="number" 
-                    placeholder="Enter volume" 
-                    className="w-full p-3 border rounded"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block font-medium mb-1">Delivery Date</label>
-                  <input 
-                    type="date" 
-                    className="w-full p-3 border rounded"
-                    required
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <label className="block font-medium mb-1">Urgency Level</label>
-                <div className="flex space-x-4">
-                  <label className="flex items-center">
-                    <input type="radio" name="urgency" value="normal" className="mr-2" />
-                    Normal (5-7 days)
-                  </label>
-                  <label className="flex items-center">
-                    <input type="radio" name="urgency" value="urgent" className="mr-2" />
-                    Urgent (2-3 days)
-                  </label>
-                  <label className="flex items-center">
-                    <input type="radio" name="urgency" value="emergency" className="mr-2" />
-                    Emergency (24 hours)
-                  </label>
-                </div>
-              </div>
-              
-              <div>
-                <label className="block font-medium mb-1">Delivery Location</label>
-                <select className="w-full p-3 border rounded" required>
-                  <option value="">Select Delivery Point</option>
-                  <option value="nakuru">Nakuru Main Depot</option>
-                  <option value="narok">Narok Collection Center</option>
-                  <option value="molo">Molo Processing Plant</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="block font-medium mb-1">Special Instructions</label>
-                <textarea 
-                  placeholder="Any special requirements or notes..." 
-                  className="w-full p-3 border rounded"
-                  rows="3"
-                ></textarea>
-              </div>
-              
-              <div className="flex justify-end space-x-3 pt-4">
-                <button 
-                  type="button"
-                  onClick={() => setShowOrderForm(false)}
-                  className="px-6 py-2 border rounded hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                >
-                  Create Order
-                </button>
-              </div>
-            </form>
           </div>
         </div>
-      )}
+      </section>
+
+      {/* Acreage Section */}
+      <section className="bg-white p-6 rounded-lg shadow">
+        <h2 className="text-xl font-bold mb-4">Acreage</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h3 className="font-semibold text-lg mb-3">Per Variety</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 bg-blue-50 rounded-lg">
+                <p className="text-sm text-gray-600">Market (acres)</p>
+                <p className="text-2xl font-bold">{farmMetrics.acreage.perVariety.market}</p>
+              </div>
+              <div className="p-4 bg-green-50 rounded-lg">
+                <p className="text-sm text-gray-600">Challenger (acres)</p>
+                <p className="text-2xl font-bold">{farmMetrics.acreage.perVariety.challenger}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div>
+            <h3 className="font-semibold text-lg mb-3">Per Location Performance</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 bg-blue-50 rounded-lg">
+                <p className="text-sm text-gray-600">Market (%)</p>
+                <p className="text-2xl font-bold">{farmMetrics.acreage.perLocationPerformance.market}%</p>
+              </div>
+              <div className="p-4 bg-green-50 rounded-lg">
+                <p className="text-sm text-gray-600">Challenger (%)</p>
+                <p className="text-2xl font-bold">{farmMetrics.acreage.perLocationPerformance.challenger}%</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Supply Section */}
+      <section className="bg-white p-6 rounded-lg shadow">
+        <h2 className="text-xl font-bold mb-4">Supply</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h3 className="font-semibold text-lg mb-3">Readiness</h3>
+            <div className="p-6 bg-purple-50 rounded-lg">
+              <div className="flex justify-between mb-2">
+                <p className="text-gray-600">Supply Readiness</p>
+                <p className="font-bold text-purple-600">{farmMetrics.supply.readiness}%</p>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-4">
+                <div 
+                  className="bg-purple-500 h-4 rounded-full" 
+                  style={{width: `${farmMetrics.supply.readiness}%`}}
+                ></div>
+              </div>
+            </div>
+          </div>
+          
+          <div>
+            <h3 className="font-semibold text-lg mb-3">Supply Demand Matching</h3>
+            <div className="space-y-3">
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <p className="text-sm text-gray-600">No. of Contracts</p>
+                <p className="text-xl font-bold">{farmMetrics.supply.supplyDemandMatching.contracts}</p>
+              </div>
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <p className="text-sm text-gray-600">Contract Value</p>
+                <p className="text-xl font-bold">${farmMetrics.supply.supplyDemandMatching.value.toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Financial Section */}
+      <section className="bg-white p-6 rounded-lg shadow">
+        <h2 className="text-xl font-bold mb-4">Financial</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="p-4 bg-red-50 rounded-lg">
+            <p className="text-sm text-gray-600">Projected Expenses</p>
+            <p className="text-2xl font-bold">${farmMetrics.financial.projectedExpenses.toLocaleString()}</p>
+          </div>
+          <div className="p-4 bg-blue-50 rounded-lg">
+            <p className="text-sm text-gray-600">Contract Value</p>
+            <p className="text-2xl font-bold">${farmMetrics.financial.contractValue.toLocaleString()}</p>
+          </div>
+          <div className="p-4 bg-green-50 rounded-lg">
+            <p className="text-sm text-gray-600">Market Prices</p>
+            <div className="flex justify-between mt-2">
+              <span>Shangi: ${farmMetrics.financial.marketPrices.shangi}</span>
+              <span>Challenger: ${farmMetrics.financial.marketPrices.challenger}</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Sourcing Log */}
+      <section className="bg-white p-6 rounded-lg shadow">
+        <h2 className="text-xl font-bold mb-4">Sourcing Log</h2>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead>
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Variety</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Qty Delivered</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Qty Accepted</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reason for Rejection</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {farmMetrics.sourcingLog.map((log, index) => (
+                <tr key={index}>
+                  <td className="px-4 py-3 text-sm">{log.date}</td>
+                  <td className="px-4 py-3 text-sm font-medium">{log.name}</td>
+                  <td className="px-4 py-3 text-sm">{log.variety}</td>
+                  <td className="px-4 py-3 text-sm">{log.quantityDelivered}</td>
+                  <td className="px-4 py-3 text-sm">{log.qtyAccepted}</td>
+                  <td className="px-4 py-3 text-sm">{log.reason || 'N/A'}</td>
+                  <td className="px-4 py-3 text-sm">${log.price}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* Contracts and Supply Plans */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Contracts */}
+        <section className="bg-white p-6 rounded-lg shadow">
+          <h2 className="text-xl font-bold mb-4">Contracts</h2>
+          <div className="space-y-4">
+            {farmMetrics.contracts.map((contract, index) => (
+              <div key={index} className="p-4 border rounded-lg">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-medium">{contract.farmer}</span>
+                  <span className={`px-2 py-1 text-xs rounded-full ${
+                    contract.paymentStatus === 'Paid' 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {contract.paymentStatus}
+                  </span>
+                </div>
+                <div className="text-sm text-gray-600">
+                  Quantity Fulfilled: {contract.qtyFulfilled}
+                  {contract.fulfilled && (
+                    <span className="ml-2 text-green-600">✓ Fulfilled</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Supply Plans */}
+        <section className="bg-white p-6 rounded-lg shadow">
+          <h2 className="text-xl font-bold mb-4">Supply Plans</h2>
+          <div className="space-y-4">
+            {farmMetrics.supplyPlans.map((plan, index) => (
+              <div key={index} className="p-4 border rounded-lg">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-medium">{plan.farmer}</span>
+                  <span className={`px-2 py-1 text-xs rounded-full ${
+                    plan.readiness === 'High' 
+                      ? 'bg-green-100 text-green-800' 
+                      : plan.readiness === 'Medium'
+                      ? 'bg-yellow-100 text-yellow-800'
+                      : 'bg-red-100 text-red-800'
+                  }`}>
+                    {plan.readiness} Readiness
+                  </span>
+                </div>
+                <div className="text-sm text-gray-600">
+                  Scheduled: {plan.week}
+                </div>
+              </div>
+            ))}
+            <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+              <p className="text-sm text-blue-700">
+                Drag and drop farmers to adjust supply schedule based on readiness.
+                System will recommend optimal scheduling.
+              </p>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      {/* Quick Actions */}
+      <section className="bg-white p-6 rounded-lg shadow">
+        <h2 className="text-xl font-bold mb-4">Quick Actions</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <button className="p-4 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center justify-center">
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Update Readiness
+          </button>
+          <button className="p-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center justify-center">
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
+            </svg>
+            Generate Reports
+          </button>
+          <button className="p-4 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition flex items-center justify-center">
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            View Forecasts
+          </button>
+        </div>
+      </section>
     </div>
   );
 }
