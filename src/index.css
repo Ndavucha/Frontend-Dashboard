@@ -1,0 +1,151 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Your custom color palette */
+    --primary: 136 58% 34%; /* #217A2D converted to HSL: 136°, 58%, 34% */
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 51 100% 50%; /* #FFD700 converted to HSL: 51°, 100%, 50% */
+    --secondary-foreground: 0 0% 20%;
+    
+    --accent: 25 58% 28%; /* #6E3B1E converted to HSL: 25°, 58%, 28% */
+    --accent-foreground: 0 0% 100%;
+    
+    /* Base colors */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 136 58% 34%;
+    --radius: 0.5rem;
+    
+    /* Status colors */
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 51 100% 50%;
+    --warning-foreground: 0 0% 20%;
+    
+    /* Sidebar colors */
+    --sidebar-background: 136 58% 96%;
+    --sidebar-foreground: 136 58% 20%;
+    --sidebar-primary: 136 58% 34%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 51 100% 92%;
+    --sidebar-accent-foreground: 51 100% 30%;
+    --sidebar-border: 136 58% 90%;
+    --sidebar-ring: 136 58% 34%;
+    
+    /* Chart colors using your palette */
+    --chart-1: 136 58% 34%; /* Green */
+    --chart-2: 51 100% 50%; /* Yellow */
+    --chart-3: 25 58% 28%; /* Brown */
+    --chart-4: 136 58% 50%; /* Lighter Green */
+    --chart-5: 51 100% 70%; /* Lighter Yellow */
+  }
+
+  .dark {
+    /* Dark mode with your colors */
+    --background: 0 0% 10%;
+    --foreground: 0 0% 95%;
+    --card: 0 0% 15%;
+    --card-foreground: 0 0% 95%;
+    --popover: 0 0% 15%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 136 58% 44%; /* Lighter green for dark mode */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 51 100% 60%; /* Lighter yellow for dark mode */
+    --secondary-foreground: 0 0% 10%;
+    --accent: 25 58% 38%; /* Lighter brown for dark mode */
+    --accent-foreground: 0 0% 100%;
+    --muted: 0 0% 20%;
+    --muted-foreground: 0 0% 65%;
+    --destructive: 0 84% 50%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 25%;
+    --input: 0 0% 25%;
+    --ring: 136 58% 44%;
+    
+    /* Sidebar dark mode */
+    --sidebar-background: 0 0% 15%;
+    --sidebar-foreground: 0 0% 85%;
+    --sidebar-primary: 136 58% 44%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 25 58% 30%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 0 0% 25%;
+    --sidebar-ring: 136 58% 44%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'DM Sans', system-ui, sans-serif;
+  }
+}
+
+/* Custom utility classes with your colors */
+@layer utilities {
+  .text-brand-green {
+    color: #217A2D;
+  }
+  
+  .bg-brand-green {
+    background-color: #217A2D;
+  }
+  
+  .text-brand-yellow {
+    color: #FFD700;
+  }
+  
+  .bg-brand-yellow {
+    background-color: #FFD700;
+  }
+  
+  .text-brand-brown {
+    color: #6E3B1E;
+  }
+  
+  .bg-brand-brown {
+    background-color: #6E3B1E;
+  }
+  
+  .border-brand-green {
+    border-color: #217A2D;
+  }
+  
+  .border-brand-yellow {
+    border-color: #FFD700;
+  }
+  
+  .border-brand-brown {
+    border-color: #6E3B1E;
+  }
+  
+  /* Gradient backgrounds */
+  .bg-gradient-green {
+    background: linear-gradient(135deg, #217A2D 0%, #1B5E20 100%);
+  }
+  
+  .bg-gradient-yellow {
+    background: linear-gradient(135deg, #FFD700 0%, #F9A825 100%);
+  }
+  
+  .bg-gradient-brand {
+    background: linear-gradient(135deg, #217A2D 0%, #FFD700 50%, #6E3B1E 100%);
+  }
+}
