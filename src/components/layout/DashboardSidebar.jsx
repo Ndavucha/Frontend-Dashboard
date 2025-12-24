@@ -11,6 +11,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -19,17 +20,17 @@ import { useState } from 'react';
 const navigation = [
   { name: 'Overview', href: '/', icon: LayoutDashboard },
   { name: 'Farmers', href: '/farmers', icon: Users },
-  { name: 'Buyer Dashboard', href: '/buyer', icon: CalendarRange },
   { name: 'Procurement', href: '/procurement', icon: Truck },
-  { name: 'Contracts', href: '/contracts', icon: FileText },
+  { name: 'Contracts', href: '/contracts', icon: FileText }, // Using FileText for Contracts
+  { name: 'Aggregators', href: '/aggregators', icon: CalendarRange },// New procurement page
   { name: 'Analytics', href: '/analytics', icon: TrendingUp },
-  { name: 'Aggregators', href: '/aggregators', icon: ClipboardList },
 ];
 
 const bottomNav = [
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
+// Main DashboardSidebar component
 export function DashboardSidebar() {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
@@ -37,7 +38,7 @@ export function DashboardSidebar() {
   return (
     <aside
       className={cn(
-        'fixed left-0 top-0 z-40 flex h-screen flex-col bg-sidebar transition-all duration-300',
+        'hidden lg:flex fixed left-0 top-0 z-40 h-screen flex-col bg-sidebar transition-all duration-300',
         collapsed ? 'w-16' : 'w-64'
       )}
     >
@@ -59,7 +60,7 @@ export function DashboardSidebar() {
         )}
       </div>
 
-      {/* Main Navigation - No changes */}
+      {/* Main Navigation */}
       <nav className="flex-1 space-y-1 px-3 py-4">
         {navigation.map((item) => {
           const isActive = location.pathname === item.href;
@@ -81,7 +82,7 @@ export function DashboardSidebar() {
         })}
       </nav>
 
-      {/* Bottom Navigation - No changes */}
+      {/* Bottom Navigation */}
       <div className="border-t border-sidebar-border px-3 py-4">
         {bottomNav.map((item) => {
           const isActive = location.pathname === item.href;
@@ -103,7 +104,7 @@ export function DashboardSidebar() {
         })}
       </div>
 
-      {/* Collapse Toggle - No changes */}
+      {/* Collapse Toggle */}
       <Button
         variant="ghost"
         size="icon"
@@ -113,5 +114,92 @@ export function DashboardSidebar() {
         {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
       </Button>
     </aside>
+  );
+}
+
+// Mobile DashboardSidebar component
+export function MobileDashboardSidebar({ isOpen, onClose }) {
+  const location = useLocation();
+
+  return (
+    <div className={cn(
+      "fixed inset-0 z-50 lg:hidden transition-opacity duration-300",
+      isOpen ? "opacity-100 visible" : "opacity-0 invisible"
+    )}>
+      {/* Backdrop */}
+      <div 
+        className="fixed inset-0 bg-black/50 transition-opacity duration-300"
+        onClick={onClose}
+      />
+      
+      {/* Sidebar */}
+      <aside className={cn(
+        "fixed left-0 top-0 z-50 h-full w-64 bg-sidebar border-r border-sidebar-border transition-transform duration-300",
+        isOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
+        {/* Close button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onClose}
+          className="absolute right-4 top-4"
+        >
+          <X className="h-5 w-5" />
+        </Button>
+        
+        {/* Logo Section */}
+        <div className="flex h-20 items-center gap-3 border-b border-sidebar-border px-4">
+          <AppLogo.Compact />
+        </div>
+        
+        {/* Navigation */}
+        <nav className="space-y-1 px-3 py-4">
+          {navigation.map((item) => {
+            const isActive = location.pathname === item.href;
+            
+            return (
+              <NavLink
+                key={item.name}
+                to={item.href}
+                onClick={onClose}
+                className={cn(
+                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium',
+                  isActive
+                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                    : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
+                )}
+              >
+                <item.icon className="h-5 w-5" />
+                <span>{item.name}</span>
+              </NavLink>
+            );
+          })}
+        </nav>
+
+        {/* Bottom Navigation */}
+        <div className="absolute bottom-0 w-full border-t border-sidebar-border px-3 py-4">
+          {bottomNav.map((item) => {
+            const isActive = location.pathname === item.href;
+            
+            return (
+              <NavLink
+                key={item.name}
+                to={item.href}
+                onClick={onClose}
+                className={cn(
+                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium',
+                  isActive
+                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                    : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
+                )}
+              >
+                <item.icon className="h-5 w-5" />
+                <span>{item.name}</span>
+              </NavLink>
+            );
+          })}
+        </div>
+      </aside>
+    </div>
   );
 }
