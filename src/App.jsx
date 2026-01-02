@@ -1,41 +1,52 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/index";
-import BuyerDashboard from "./pages/BuyerDashboard";
-import Procurement from "./pages/Procurement";
-import Farmers from "./pages/Farmers";
-import Contracts from "./pages/Contracts";
-import Aggregators from "./pages/Aggregators";
-import Analytics from "./pages/Analytics";
-import Settings from "./pages/Settings";
-import NotFound from "./pages/NotFound";
+import React from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import Dashboard from './pages/Dashboard';
+import Farmers from './pages/Farmers';
+import Procurement from './pages/Procurement';
+import Analytics from './pages/Analytics';
+import Settings from './pages/Settings';
+import { Toaster } from 'sonner';
+import Aggregators from './pages/Aggregators';
+import SupplyDashboard from './pages/SupplyDashboard';
+import Contracts from './pages/Contracts';
+import Onboarding from './pages/Onboarding';
+import { useDialogFix } from '@/hooks/useDialogFix';
 
-const queryClient = new QueryClient();
-
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/buyer" element={<BuyerDashboard/>} />
-          <Route path="/procurement" element={<Procurement/>} />
-          <Route path="/farmers" element={<Farmers/>} />
-          <Route path="/contracts" element={<Contracts/>} />
-          <Route path="/aggregators" element={<Aggregators />} />
-          <Route path="/analytics" element={<Analytics/>} />
-          <Route path="/settings" element={<Settings/>} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+function App() {
+  useDialogFix(); 
+  
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/farmers" element={<Farmers />} />
+        <Route path="/procurement" element={<Procurement />} />
+        <Route path="/aggregators" element={<Aggregators />} />
+        <Route path="/contracts" element={<Contracts />} />
+        <Route path="/analytics" element={<Analytics />} />
+        <Route path="/SupplyDashboard" element={<SupplyDashboard />} />
+        <Route path="/onboarding" element={<Onboarding />} />
+        <Route path="/settings" element={<Settings />} />
+      </Routes>
+      
+      <Toaster 
+        position="top-right"
+        toastOptions={{
+          style: {
+            background: 'hsl(var(--background))',
+            color: 'hsl(var(--foreground))',
+            border: '1px solid hsl(var(--border))',
+          },
+          success: {
+            style: {
+              background: '#217A2D',
+              color: 'white',
+            },
+          },
+        }}
+      />
+    </BrowserRouter>
+  );
+}
 
 export default App;
