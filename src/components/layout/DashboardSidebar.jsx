@@ -22,7 +22,8 @@ const navigation = [
   { name: 'Farmers', href: '/farmers', icon: Users },
   { name: 'Procurement', href: '/procurement', icon: Truck },
   { name: 'Contracts', href: '/contracts', icon: FileText }, // Using FileText for Contracts
-  { name: 'Aggregators', href: '/aggregators', icon: CalendarRange },// New procurement page
+  { name: 'Aggregators', href: '/aggregators', icon: CalendarRange },
+  { name: 'SupplyDashboard', href: '/Supplydashboard', icon: ClipboardList },
   { name: 'Analytics', href: '/analytics', icon: TrendingUp },
 ];
 
