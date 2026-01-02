@@ -149,3 +149,38 @@
     background: linear-gradient(135deg, #217A2D 0%, #FFD700 50%, #6E3B1E 100%);
   }
 }
+
+/* =========================================== */
+/* EMERGENCY DIALOG FIX - ADD THIS TO END OF index.css */
+/* =========================================== */
+
+/* 1. Force overlay to disappear when dialog is closed */
+[data-state="closed"] {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+/* 2. Remove all pointer-events blocking */
+* {
+  pointer-events: auto !important;
+}
+
+/* 3. Specifically target dialog overlay */
+.fixed.inset-0.z-50.bg-black\/80:not([data-state="open"]) {
+  display: none !important;
+  opacity: 0 !important;
+}
+
+/* 4. Remove any inline styles blocking clicks */
+[style*="pointer-events: auto"] {
+  pointer-events: none !important;
+}
+
+/* 5. Make sure body allows clicks */
+body {
+  pointer-events: auto !important;
+}
+
+body * {
+  pointer-events: auto !important;
+}
