@@ -86,6 +86,19 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { apiService } from '@/api/services';
 
+// Date formatting helper with validation
+const formatDate = (dateString, formatStr = 'MMM dd, yyyy') => {
+  if (!dateString) return 'N/A';
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Invalid date';
+    return format(date, formatStr);
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return 'Error';
+  }
+};
+
 // Form validation schema
 const contractSchema = z.object({
   supplierName: z.string().min(2, 'Supplier name must be at least 2 characters'),
@@ -132,7 +145,17 @@ export default function Contracts() {
     try {
       setLoading(true);
       const response = await apiService.contracts.getAll();
-      setContracts(response || []);
+      console.log('API Response:', response); // Debug log
+      if (response && Array.isArray(response.data)) {
+        console.log('First contract dates:', response.data[0]?.startDate, response.data[0]?.endDate);
+        setContracts(response.data || []);
+      } else if (response && Array.isArray(response)) {
+        console.log('First contract dates (array response):', response[0]?.startDate, response[0]?.endDate);
+        setContracts(response || []);
+      } else {
+        console.log('Unexpected API response format:', response);
+        setContracts([]);
+      }
     } catch (error) {
       console.error('Error fetching contracts:', error);
       toast.error('Failed to load contracts');
@@ -164,13 +187,17 @@ export default function Contracts() {
     try {
       setSubmitting(true);
       
+      // Ensure dates are valid
+      const startDate = data.startDate ? new Date(data.startDate) : new Date();
+      const endDate = data.endDate ? new Date(data.endDate) : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+      
       if (editingContract) {
         // Update existing contract
         const updatedData = {
           ...data,
           id: editingContract.id,
-          startDate: new Date(data.startDate).toISOString(),
-          endDate: new Date(data.endDate).toISOString(),
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
         };
         
         await apiService.contracts.update(editingContract.id, updatedData);
@@ -179,8 +206,8 @@ export default function Contracts() {
         // Add new contract
         const newContract = {
           ...data,
-          startDate: new Date(data.startDate).toISOString(),
-          endDate: new Date(data.endDate).toISOString(),
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
           createdAt: new Date().toISOString(),
         };
         
@@ -221,8 +248,8 @@ export default function Contracts() {
       supplierName: contract.supplierName,
       supplierType: contract.supplierType,
       contractedQuantity: contract.contractedQuantity,
-      startDate: format(new Date(contract.startDate), 'yyyy-MM-dd'),
-      endDate: format(new Date(contract.endDate), 'yyyy-MM-dd'),
+      startDate: contract.startDate ? formatDate(contract.startDate, 'yyyy-MM-dd') : new Date().toISOString().split('T')[0],
+      endDate: contract.endDate ? formatDate(contract.endDate, 'yyyy-MM-dd') : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       pricingTerms: contract.pricingTerms,
       paymentTerms: contract.paymentTerms || '',
       fulfillmentPercentage: contract.fulfillmentPercentage,
@@ -596,7 +623,24 @@ export default function Contracts() {
                         )}
                       />
                     </div>
-                  
+                    
+                    <FormField
+                      control={form.control}
+                      name="notes"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Notes</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              placeholder="Additional terms, special conditions, etc." 
+                              className="min-h-[80px]"
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                     
                     <DialogFooter>
                       <Button 
@@ -637,7 +681,7 @@ export default function Contracts() {
                     <TableHead className="text-center">Qty (tons)</TableHead>
                     <TableHead>Duration</TableHead>
                     <TableHead>Pricing Terms</TableHead>
-                    <TableHead>Fulfilalment</TableHead>
+                    <TableHead>Fulfillment</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -658,10 +702,10 @@ export default function Contracts() {
                         <div className="text-sm">
                           <div className="flex items-center gap-1 text-muted-foreground">
                             <Calendar className="h-3 w-3" />
-                            {format(new Date(contract.startDate), 'MMM dd, yyyy')}
+                            {formatDate(contract.startDate, 'MMM dd, yyyy')}
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            to {format(new Date(contract.endDate), 'MMM dd, yyyy')}
+                            to {formatDate(contract.endDate, 'MMM dd, yyyy')}
                           </div>
                         </div>
                       </TableCell>
@@ -682,7 +726,7 @@ export default function Contracts() {
                                   variant="ghost"
                                   size="icon"
                                   className="h-5 w-5"
-                                  onClick={() => updateFulfillment(contract.id, contract.fulfillmentPercentage - 10)}
+                                  onClick={() => updateFulfillment(contract.id, Math.max(0, contract.fulfillmentPercentage - 10))}
                                 >
                                   -
                                 </Button>
@@ -690,7 +734,7 @@ export default function Contracts() {
                                   variant="ghost"
                                   size="icon"
                                   className="h-5 w-5"
-                                  onClick={() => updateFulfillment(contract.id, contract.fulfillmentPercentage + 10)}
+                                  onClick={() => updateFulfillment(contract.id, Math.min(100, contract.fulfillmentPercentage + 10))}
                                 >
                                   +
                                 </Button>
@@ -781,11 +825,11 @@ export default function Contracts() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <h4 className="text-sm font-medium text-muted-foreground">Start Date</h4>
-                    <p>{format(new Date(viewingContract.startDate), 'PPP')}</p>
+                    <p>{formatDate(viewingContract.startDate, 'PPP')}</p>
                   </div>
                   <div>
                     <h4 className="text-sm font-medium text-muted-foreground">End Date</h4>
-                    <p>{format(new Date(viewingContract.endDate), 'PPP')}</p>
+                    <p>{formatDate(viewingContract.endDate, 'PPP')}</p>
                   </div>
                 </div>
                 
@@ -821,7 +865,7 @@ export default function Contracts() {
                 
                 {viewingContract.createdAt && (
                   <div className="pt-4 border-t text-xs text-muted-foreground">
-                    Created: {format(new Date(viewingContract.createdAt), 'PPP pp')}
+                    Created: {formatDate(viewingContract.createdAt, 'PPP pp')}
                   </div>
                 )}
               </div>
