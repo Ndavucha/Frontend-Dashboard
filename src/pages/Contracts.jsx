@@ -624,23 +624,6 @@ export default function Contracts() {
                       />
                     </div>
                     
-                    <FormField
-                      control={form.control}
-                      name="notes"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Notes</FormLabel>
-                          <FormControl>
-                            <Textarea 
-                              placeholder="Additional terms, special conditions, etc." 
-                              className="min-h-[80px]"
-                              {...field} 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
                     
                     <DialogFooter>
                       <Button 
@@ -910,3 +893,4 @@ export default function Contracts() {
     </DashboardLayout>
   );
 }
+
