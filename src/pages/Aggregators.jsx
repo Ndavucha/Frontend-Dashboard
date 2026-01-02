@@ -1,3 +1,4 @@
+// src/pages/Aggregators.jsx
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { 
@@ -16,6 +17,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   Form,
   FormControl,
@@ -41,7 +52,11 @@ import {
   Star,
   Edit,
   Trash2,
-  Loader2
+  Loader2,
+  Building,
+  TrendingUp,
+  Shield,
+  Users
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -72,7 +87,9 @@ export default function Aggregators() {
     avg_reliability: 0
   });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [editingAggregator, setEditingAggregator] = useState(null);
+  const [aggregatorToDelete, setAggregatorToDelete] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
   const form = useForm({
@@ -99,11 +116,23 @@ export default function Aggregators() {
         apiService.aggregators.getStats()
       ]);
       
-      setAggregators(aggregatorsData);
-      setStats(statsData);
+      setAggregators(aggregatorsData || []);
+      setStats(statsData || {
+        internal_count: 0,
+        external_count: 0,
+        total_volume: 0,
+        avg_reliability: 0
+      });
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to load aggregators data');
+      setAggregators([]);
+      setStats({
+        internal_count: 0,
+        external_count: 0,
+        total_volume: 0,
+        avg_reliability: 0
+      });
     } finally {
       setLoading(false);
     }
@@ -160,22 +189,50 @@ export default function Aggregators() {
     setIsDialogOpen(true);
   };
 
-  // Handle delete
-  const handleDelete = async (id, name) => {
-    if (!window.confirm(`Are you sure you want to delete "${name}"?`)) {
-      return;
-    }
+  // Handle delete click
+  const handleDeleteClick = (id, name) => {
+    setAggregatorToDelete({ id, name });
+    setIsDeleteDialogOpen(true);
+  };
 
+  // Handle delete confirmation
+  const handleDeleteConfirm = async () => {
+    if (!aggregatorToDelete) return;
+    
     try {
-      await apiService.aggregators.delete(id);
-      toast.success(`Aggregator "${name}" deleted successfully`);
+      await apiService.aggregators.delete(aggregatorToDelete.id);
+      toast.success(`Aggregator "${aggregatorToDelete.name}" deleted successfully`);
       await fetchData(); // Refresh data
     } catch (error) {
       console.error('Error deleting aggregator:', error);
       toast.error('Failed to delete aggregator');
+    } finally {
+      setIsDeleteDialogOpen(false);
+      setAggregatorToDelete(null);
     }
   };
 
+  // Empty state component
+  const EmptyState = () => (
+    <div className="text-center py-12">
+      <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
+        <ClipboardList className="h-8 w-8 text-gray-400" />
+      </div>
+      <h3 className="text-lg font-semibold text-gray-700 mb-2">
+        No Aggregators Yet
+      </h3>
+      <p className="text-gray-500 mb-6 max-w-md mx-auto">
+        Start building your aggregator network by adding your first aggregator partner.
+        Track their performance, reliability, and volumes.
+      </p>
+      <Button onClick={() => setIsDialogOpen(true)}>
+        <Plus className="h-4 w-4 mr-2" />
+        Add First Aggregator
+      </Button>
+    </div>
+  );
+
+  // Loading state
   if (loading && aggregators.length === 0) {
     return (
       <DashboardLayout
@@ -183,7 +240,10 @@ export default function Aggregators() {
         description="Manage internal and external aggregator partnerships"
       >
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <div className="text-center">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
+            <p className="mt-4 text-muted-foreground">Loading aggregators...</p>
+          </div>
         </div>
       </DashboardLayout>
     );
@@ -194,44 +254,61 @@ export default function Aggregators() {
       title="Aggregators"
       description="Manage internal and external aggregator partnerships"
     >
-      {/* Summary */}
+      {/* Summary Cards - Empty state */}
       <div className="grid gap-4 md:grid-cols-4 mb-6">
-        <Card className="shadow-card">
+        <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <p className="text-2xl font-bold text-primary">{stats.internal_count}</p>
+              <div className="flex items-center justify-center mb-2">
+                <Building className="h-5 w-5 text-blue-600 mr-2" />
+                <p className="text-2xl font-bold">0</p>
+              </div>
               <p className="text-sm text-muted-foreground">Internal Aggregators</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="shadow-card">
+        <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <p className="text-2xl font-bold text-secondary">{stats.external_count}</p>
+              <div className="flex items-center justify-center mb-2">
+                <Users className="h-5 w-5 text-green-600 mr-2" />
+                <p className="text-2xl font-bold">0</p>
+              </div>
               <p className="text-sm text-muted-foreground">External Aggregators</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="shadow-card">
+        <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <p className="text-2xl font-bold text-foreground">{stats.total_volume}</p>
+              <div className="flex items-center justify-center mb-2">
+                <TrendingUp className="h-5 w-5 text-amber-600 mr-2" />
+                <p className="text-2xl font-bold">0</p>
+              </div>
               <p className="text-sm text-muted-foreground">Total Volume (tons)</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="shadow-card">
+        <Card>
           <CardContent className="pt-6">
             <div className="text-center">
-              <p className="text-2xl font-bold text-success">{stats.avg_reliability}%</p>
+              <div className="flex items-center justify-center mb-2">
+                <Shield className="h-5 w-5 text-purple-600 mr-2" />
+                <p className="text-2xl font-bold">0%</p>
+              </div>
               <p className="text-sm text-muted-foreground">Avg. Reliability</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">Aggregator Directory</h2>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-lg font-semibold">Aggregator Directory</h2>
+          <p className="text-sm text-muted-foreground">
+            {aggregators.length === 0 ? 'No aggregators yet' : `${aggregators.length} aggregators in your network`}
+          </p>
+        </div>
         
         {/* Add Aggregator Button with Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -327,7 +404,7 @@ export default function Aggregators() {
                       <FormItem>
                         <FormLabel>Volume (tons) *</FormLabel>
                         <FormControl>
-                          <Input type="number" {...field} />
+                          <Input type="number" placeholder="0" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -341,7 +418,7 @@ export default function Aggregators() {
                       <FormItem>
                         <FormLabel>Reliability % *</FormLabel>
                         <FormControl>
-                          <Input type="number" {...field} />
+                          <Input type="number" placeholder="80" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -355,7 +432,7 @@ export default function Aggregators() {
                       <FormItem>
                         <FormLabel>Quality % *</FormLabel>
                         <FormControl>
-                          <Input type="number" {...field} />
+                          <Input type="number" placeholder="85" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -433,86 +510,122 @@ export default function Aggregators() {
         </Dialog>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        {aggregators.map((agg) => (
-          <Card key={agg.id} className="shadow-card hover:shadow-card-hover transition-all group">
-            <CardHeader className="pb-2">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <CardTitle className="text-base">{agg.name}</CardTitle>
-                  <CardDescription>{agg.county}</CardDescription>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant={agg.type === 'internal' ? 'farmer' : 'aggregator'}>
-                    {agg.type}
-                  </Badge>
-                  <div className="flex opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                      onClick={() => handleEdit(agg)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0 text-destructive"
-                      onClick={() => handleDelete(agg.id, agg.name)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+      {aggregators.length === 0 ? (
+        <Card>
+          <CardContent className="pt-6">
+            <EmptyState />
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {aggregators.map((agg) => (
+            <Card key={agg.id} className="shadow-card hover:shadow-card-hover transition-all group">
+              <CardHeader className="pb-2">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <CardTitle className="text-base">{agg.name}</CardTitle>
+                    <CardDescription>{agg.county}</CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={agg.type === 'internal' ? 'farmer' : 'aggregator'}>
+                      {agg.type === 'internal' ? 'Internal' : 'External'}
+                    </Badge>
+                    <div className="flex opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={() => handleEdit(agg)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                        onClick={() => handleDeleteClick(agg.id, agg.name)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <p className="text-xl font-bold text-primary">{agg.historical_volume}</p>
-                  <p className="text-xs text-muted-foreground">Total Volume (t)</p>
-                </div>
-                <div>
-                  <p className="text-xl font-bold text-success">{agg.reliability_score}%</p>
-                  <p className="text-xs text-muted-foreground">Reliability</p>
-                </div>
-                <div>
-                  <p className="text-xl font-bold text-secondary">{agg.average_quality}%</p>
-                  <p className="text-xs text-muted-foreground">Quality Score</p>
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Performance</span>
-                  <div className="flex items-center gap-1">
-                    {[...Array(5)].map((_, i) => (
-                      <Star
-                        key={i}
-                        className={`h-3 w-3 ${
-                          i < Math.round(agg.reliability_score / 20)
-                            ? 'fill-secondary text-secondary'
-                            : 'text-muted'
-                        }`}
-                      />
-                    ))}
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div>
+                    <p className="text-xl font-bold text-primary">{agg.historical_volume}</p>
+                    <p className="text-xs text-muted-foreground">Total Volume (t)</p>
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold text-success">{agg.reliability_score}%</p>
+                    <p className="text-xs text-muted-foreground">Reliability</p>
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold text-secondary">{agg.average_quality}%</p>
+                    <p className="text-xs text-muted-foreground">Quality Score</p>
                   </div>
                 </div>
-                <Progress value={agg.reliability_score} className="h-2" />
-              </div>
-              
-              {(agg.contact_person || agg.phone || agg.email) && (
-                <div className="pt-2 border-t text-xs text-muted-foreground">
-                  {agg.contact_person && <p>Contact: {agg.contact_person}</p>}
-                  {agg.phone && <p>Phone: {agg.phone}</p>}
-                  {agg.email && <p>Email: {agg.email}</p>}
+                
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Performance Rating</span>
+                    <div className="flex items-center gap-1">
+                      {[...Array(5)].map((_, i) => (
+                        <Star
+                          key={i}
+                          className={`h-3 w-3 ${
+                            i < Math.round(agg.reliability_score / 20)
+                              ? 'fill-amber-500 text-amber-500'
+                              : 'text-gray-300'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <Progress value={agg.reliability_score} className="h-2" />
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                
+                {(agg.contact_person || agg.phone || agg.email) && (
+                  <div className="pt-3 border-t text-xs text-muted-foreground space-y-1">
+                    {agg.contact_person && (
+                      <p className="truncate">Contact: {agg.contact_person}</p>
+                    )}
+                    {agg.phone && (
+                      <p className="truncate">Phone: {agg.phone}</p>
+                    )}
+                    {agg.email && (
+                      <p className="truncate">Email: {agg.email}</p>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Aggregator</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{aggregatorToDelete?.name}"? 
+              This action cannot be undone and all associated data will be removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 }
