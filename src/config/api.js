@@ -1,7 +1,7 @@
 // src/config/api.js
 
 // Get environment from import.meta.env or use defaults
-const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || 'https://dashboard-azd9.onrender.com';
 const WS_URL = import.meta.env?.VITE_WS_URL || 'ws://localhost:5001';
 
 export const API_CONFIG = {
@@ -49,4 +49,5 @@ export const WS_EVENTS = {
   ORDER_UPDATED: 'order_updated',
   RISK_ALERT: 'risk_alert',
   NOTIFICATION: 'notification',
+
 };
