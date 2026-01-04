@@ -76,7 +76,7 @@ const Logo = ({
             SupplyChain
           </span>
           <span className={`text-xs font-medium ${currentVariant.subTextColor}`}>
-            Harvest Solutions
+            Optimization Solutions
           </span>
         </div>
       )}
@@ -107,7 +107,7 @@ export const IconLogo = ({ size = "default", className = "" }) => {
 // Logo with custom text
 export const LogoWithCustomText = ({ 
   mainText = "SupplyChain",
-  subText = "Harvest Solutions",
+  subText = "Optimization Solutions",
   ...props 
 }) => {
   return (
@@ -119,4 +119,5 @@ export const LogoWithCustomText = ({
       </div>
     </div>
   );
+
 };
