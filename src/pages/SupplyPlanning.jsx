@@ -42,7 +42,7 @@ import {
 import { apiService } from '@/api/services';
 import { toast } from 'sonner';
 
-export default function SupplyDashboard() {
+export default function SupplyPlanning() {
   const [activeTab, setActiveTab] = useState('supply');
   const [farmers, setFarmers] = useState([]);
   const [allocations, setAllocations] = useState([]);
