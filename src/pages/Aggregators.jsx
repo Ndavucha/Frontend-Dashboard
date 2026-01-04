@@ -111,21 +111,44 @@ export default function Aggregators() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [aggregatorsData, statsData] = await Promise.all([
+      const [aggregatorsResponse, statsResponse] = await Promise.all([
         apiService.aggregators.getAll(),
         apiService.aggregators.getStats()
       ]);
       
-      setAggregators(aggregatorsData || []);
-      setStats(statsData || {
-        internal_count: 0,
-        external_count: 0,
-        total_volume: 0,
-        avg_reliability: 0
-      });
+      // Debug logging
+      console.log('Aggregators API Response:', aggregatorsResponse);
+      console.log('Type of aggregatorsResponse:', typeof aggregatorsResponse);
+      console.log('Is Array?', Array.isArray(aggregatorsResponse));
+      console.log('Stats API Response:', statsResponse);
+      
+      // Ensure aggregators is always an array
+      const aggregatorsData = Array.isArray(aggregatorsResponse) 
+        ? aggregatorsResponse 
+        : [];
+      
+      // Ensure stats has proper structure
+      const statsData = statsResponse && typeof statsResponse === 'object'
+        ? {
+            internal_count: statsResponse.internal_count || 0,
+            external_count: statsResponse.external_count || 0,
+            total_volume: statsResponse.total_volume || 0,
+            avg_reliability: statsResponse.avg_reliability || 0
+          }
+        : {
+            internal_count: 0,
+            external_count: 0,
+            total_volume: 0,
+            avg_reliability: 0
+          };
+      
+      setAggregators(aggregatorsData);
+      setStats(statsData);
+      
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to load aggregators data');
+      // Set to empty arrays/objects on error
       setAggregators([]);
       setStats({
         internal_count: 0,
@@ -176,12 +199,12 @@ export default function Aggregators() {
   const handleEdit = (aggregator) => {
     setEditingAggregator(aggregator);
     form.reset({
-      name: aggregator.name,
-      county: aggregator.county,
-      type: aggregator.type,
-      historical_volume: aggregator.historical_volume,
-      reliability_score: aggregator.reliability_score,
-      average_quality: aggregator.average_quality,
+      name: aggregator.name || '',
+      county: aggregator.county || '',
+      type: aggregator.type || 'external',
+      historical_volume: aggregator.historical_volume || 0,
+      reliability_score: aggregator.reliability_score || 80,
+      average_quality: aggregator.average_quality || 85,
       contact_person: aggregator.contact_person || '',
       phone: aggregator.phone || '',
       email: aggregator.email || '',
@@ -233,7 +256,7 @@ export default function Aggregators() {
   );
 
   // Loading state
-  if (loading && aggregators.length === 0) {
+  if (loading) {
     return (
       <DashboardLayout
         title="Aggregators"
@@ -254,14 +277,14 @@ export default function Aggregators() {
       title="Aggregators"
       description="Manage internal and external aggregator partnerships"
     >
-      {/* Summary Cards - Empty state */}
+      {/* Summary Cards - Using actual stats data */}
       <div className="grid gap-4 md:grid-cols-4 mb-6">
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
               <div className="flex items-center justify-center mb-2">
                 <Building className="h-5 w-5 text-blue-600 mr-2" />
-                <p className="text-2xl font-bold">0</p>
+                <p className="text-2xl font-bold">{stats.internal_count || 0}</p>
               </div>
               <p className="text-sm text-muted-foreground">Internal Aggregators</p>
             </div>
@@ -272,7 +295,7 @@ export default function Aggregators() {
             <div className="text-center">
               <div className="flex items-center justify-center mb-2">
                 <Users className="h-5 w-5 text-green-600 mr-2" />
-                <p className="text-2xl font-bold">0</p>
+                <p className="text-2xl font-bold">{stats.external_count || 0}</p>
               </div>
               <p className="text-sm text-muted-foreground">External Aggregators</p>
             </div>
@@ -283,7 +306,7 @@ export default function Aggregators() {
             <div className="text-center">
               <div className="flex items-center justify-center mb-2">
                 <TrendingUp className="h-5 w-5 text-amber-600 mr-2" />
-                <p className="text-2xl font-bold">0</p>
+                <p className="text-2xl font-bold">{stats.total_volume || 0}</p>
               </div>
               <p className="text-sm text-muted-foreground">Total Volume (tons)</p>
             </div>
@@ -294,7 +317,7 @@ export default function Aggregators() {
             <div className="text-center">
               <div className="flex items-center justify-center mb-2">
                 <Shield className="h-5 w-5 text-purple-600 mr-2" />
-                <p className="text-2xl font-bold">0%</p>
+                <p className="text-2xl font-bold">{stats.avg_reliability || 0}%</p>
               </div>
               <p className="text-sm text-muted-foreground">Avg. Reliability</p>
             </div>
@@ -306,7 +329,10 @@ export default function Aggregators() {
         <div>
           <h2 className="text-lg font-semibold">Aggregator Directory</h2>
           <p className="text-sm text-muted-foreground">
-            {aggregators.length === 0 ? 'No aggregators yet' : `${aggregators.length} aggregators in your network`}
+            {!Array.isArray(aggregators) || aggregators.length === 0 
+              ? 'No aggregators yet' 
+              : `${aggregators.length} aggregators in your network`
+            }
           </p>
         </div>
         
@@ -510,7 +536,8 @@ export default function Aggregators() {
         </Dialog>
       </div>
 
-      {aggregators.length === 0 ? (
+      {/* Render aggregators with proper array checking */}
+      {!Array.isArray(aggregators) || aggregators.length === 0 ? (
         <Card>
           <CardContent className="pt-6">
             <EmptyState />
@@ -519,12 +546,12 @@ export default function Aggregators() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {aggregators.map((agg) => (
-            <Card key={agg.id} className="shadow-card hover:shadow-card-hover transition-all group">
+            <Card key={agg.id || agg.name} className="shadow-card hover:shadow-card-hover transition-all group">
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <CardTitle className="text-base">{agg.name}</CardTitle>
-                    <CardDescription>{agg.county}</CardDescription>
+                    <CardTitle className="text-base">{agg.name || 'Unnamed Aggregator'}</CardTitle>
+                    <CardDescription>{agg.county || 'No county specified'}</CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge variant={agg.type === 'internal' ? 'farmer' : 'aggregator'}>
@@ -554,15 +581,15 @@ export default function Aggregators() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div>
-                    <p className="text-xl font-bold text-primary">{agg.historical_volume}</p>
+                    <p className="text-xl font-bold text-primary">{agg.historical_volume || 0}</p>
                     <p className="text-xs text-muted-foreground">Total Volume (t)</p>
                   </div>
                   <div>
-                    <p className="text-xl font-bold text-success">{agg.reliability_score}%</p>
+                    <p className="text-xl font-bold text-success">{agg.reliability_score || 0}%</p>
                     <p className="text-xs text-muted-foreground">Reliability</p>
                   </div>
                   <div>
-                    <p className="text-xl font-bold text-secondary">{agg.average_quality}%</p>
+                    <p className="text-xl font-bold text-secondary">{agg.average_quality || 0}%</p>
                     <p className="text-xs text-muted-foreground">Quality Score</p>
                   </div>
                 </div>
@@ -575,7 +602,7 @@ export default function Aggregators() {
                         <Star
                           key={i}
                           className={`h-3 w-3 ${
-                            i < Math.round(agg.reliability_score / 20)
+                            i < Math.round((agg.reliability_score || 0) / 20)
                               ? 'fill-amber-500 text-amber-500'
                               : 'text-gray-300'
                           }`}
@@ -583,7 +610,7 @@ export default function Aggregators() {
                       ))}
                     </div>
                   </div>
-                  <Progress value={agg.reliability_score} className="h-2" />
+                  <Progress value={agg.reliability_score || 0} className="h-2" />
                 </div>
                 
                 {(agg.contact_person || agg.phone || agg.email) && (
