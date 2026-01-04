@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Table,
   TableBody,
@@ -24,13 +23,6 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -45,11 +37,8 @@ import {
   Search, 
   Plus, 
   MapPin, 
-  Download, 
   Edit, 
-  Trash2, 
-  Eye,
-  X,
+  Trash2,
   CheckCircle
 } from 'lucide-react';
 import { apiService } from '@/api/services';
@@ -73,8 +62,7 @@ export default function Farmers() {
     variety: '',
     acreage: '',
     estimatedYield: '',
-    contact: '',
-    notes: ''
+    contact: ''
   });
 
   // Fetch farmers
@@ -133,8 +121,7 @@ export default function Farmers() {
       variety: '',
       acreage: '',
       estimatedYield: '',
-      contact: '',
-      notes: ''
+      contact: ''
     });
     setSelectedFarmer(null);
   };
@@ -220,8 +207,7 @@ export default function Farmers() {
       variety: farmer.variety || '',
       acreage: farmer.acreage?.toString() || '',
       estimatedYield: farmer.estimatedYield?.toString() || '',
-      contact: farmer.contact || '',
-      notes: farmer.notes || ''
+      contact: farmer.contact || ''
     });
     setIsEditDialogOpen(true);
   };
@@ -297,12 +283,6 @@ export default function Farmers() {
                   disabled={farmers.length === 0}
                 />
               </div>
-              {farmers.length > 0 && (
-                <Button variant="outline" size="sm">
-                  <Download className="h-4 w-4 mr-2" />
-                  Export
-                </Button>
-              )}
               <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                 <DialogTrigger asChild>
                   <Button size="sm">
@@ -331,37 +311,31 @@ export default function Farmers() {
                       </div>
                       <div className="space-y-2">
                         <label className="text-sm font-medium">Gender</label>
-                        <Select
+                        <select
+                          name="gender"
                           value={formData.gender}
-                          onValueChange={(value) => handleSelectChange('gender', value)}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-2 border rounded-md"
                         >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select gender" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="male">Male</SelectItem>
-                            <SelectItem value="female">Female</SelectItem>
-                          </SelectContent>
-                        </Select>
+                          <option value="male">Male</option>
+                          <option value="female">Female</option>
+                        </select>
                       </div>
                     </div>
 
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Age Group</label>
-                      <Select
+                      <select
+                        name="ageGroup"
                         value={formData.ageGroup}
-                        onValueChange={(value) => handleSelectChange('ageGroup', value)}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 border rounded-md"
                       >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select age group" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="18-30">18-30</SelectItem>
-                          <SelectItem value="31-45">31-45</SelectItem>
-                          <SelectItem value="46-60">46-60</SelectItem>
-                          <SelectItem value="60+">60+</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        <option value="18-30">18-30</option>
+                        <option value="31-45">31-45</option>
+                        <option value="46-60">46-60</option>
+                        <option value="60+">60+</option>
+                      </select>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -438,8 +412,6 @@ export default function Farmers() {
                         placeholder="Phone or email"
                       />
                     </div>
-
-                    
                   </div>
 
                   <DialogFooter>
@@ -590,7 +562,6 @@ export default function Farmers() {
           </DialogHeader>
           
           <div className="grid gap-4 py-4">
-            {/* Same form fields as Add Dialog */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Full Name *</label>
@@ -603,31 +574,105 @@ export default function Farmers() {
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Gender</label>
-                <Select
+                <select
+                  name="gender"
                   value={formData.gender}
-                  onValueChange={(value) => handleSelectChange('gender', value)}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border rounded-md"
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select gender" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="male">Male</SelectItem>
-                    <SelectItem value="female">Female</SelectItem>
-                  </SelectContent>
-                </Select>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </select>
               </div>
             </div>
 
-            {/* ... Include all other form fields from Add Dialog ... */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Age Group</label>
+              <select
+                name="ageGroup"
+                value={formData.ageGroup}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border rounded-md"
+              >
+                <option value="18-30">18-30</option>
+                <option value="31-45">31-45</option>
+                <option value="46-60">46-60</option>
+                <option value="60+">60+</option>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">County *</label>
+                <Input
+                  name="county"
+                  value={formData.county}
+                  onChange={handleInputChange}
+                  placeholder="e.g., Nakuru"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Ward/Sub-County</label>
+                <Input
+                  name="ward"
+                  value={formData.ward}
+                  onChange={handleInputChange}
+                  placeholder="e.g., Njoro"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Crop Type</label>
+                <Input
+                  name="crop"
+                  value={formData.crop}
+                  onChange={handleInputChange}
+                  placeholder="e.g., Wheat"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Variety</label>
+                <Input
+                  name="variety"
+                  value={formData.variety}
+                  onChange={handleInputChange}
+                  placeholder="e.g., DK 8031"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Acreage (acres)</label>
+                <Input
+                  name="acreage"
+                  type="number"
+                  value={formData.acreage}
+                  onChange={handleInputChange}
+                  placeholder="0"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Est. Yield (tons)</label>
+                <Input
+                  name="estimatedYield"
+                  type="number"
+                  value={formData.estimatedYield}
+                  onChange={handleInputChange}
+                  placeholder="0"
+                />
+              </div>
+            </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Notes</label>
-              <Textarea
-                name="notes"
-                value={formData.notes}
+              <label className="text-sm font-medium">Contact</label>
+              <Input
+                name="contact"
+                value={formData.contact}
                 onChange={handleInputChange}
-                placeholder="Additional information..."
-                rows={3}
+                placeholder="Phone or email"
               />
             </div>
           </div>
