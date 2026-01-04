@@ -255,10 +255,16 @@ export default function Dashboard() {
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh
             </Button>
-            <Button size="sm" className="bg-green-600 hover:bg-green-700">
-              <PlusCircle className="h-4 w-4 mr-2" />
-              Add Data
-            </Button>
+           <Button 
+    size="sm" 
+    className="bg-green-600 hover:bg-green-700"
+    onClick={() => window.location.href = '/farmers'}
+    // OR using React Router if you have it set up:
+    // onClick={() => navigate('/farmers')}
+  >
+    <PlusCircle className="h-4 w-4 mr-2" />
+    Add Data
+  </Button>
           </div>
         </div>
 
