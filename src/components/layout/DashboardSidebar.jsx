@@ -20,7 +20,7 @@ import { useState } from 'react';
 const navigation = [
   { name: 'Overview', href: '/', icon: LayoutDashboard },
   { name: 'Farmers', href: '/farmers', icon: Users },
-  { name: 'SupplyDashboard', href: '/Supplydashboard', icon: ClipboardList },
+  { name: 'SupplyPlanning', href: '/SupplyPlanning', icon: ClipboardList },
   { name: 'Procurement', href: '/procurement', icon: Truck },
   { name: 'Contracts', href: '/contracts', icon: FileText }, // Using FileText for Contracts
   { name: 'Aggregators', href: '/aggregators', icon: CalendarRange },
