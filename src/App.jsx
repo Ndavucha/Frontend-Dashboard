@@ -7,7 +7,7 @@ import Analytics from './pages/Analytics';
 import Settings from './pages/Settings';
 import { Toaster } from 'sonner';
 import Aggregators from './pages/Aggregators';
-import SupplyDashboard from './pages/SupplyDashboard';
+import SupplyPlanning from './pages/SupplyPlanning';
 import Contracts from './pages/Contracts';
 import Onboarding from './pages/Onboarding';
 import { useDialogFix } from '@/hooks/useDialogFix';
@@ -20,7 +20,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/farmers" element={<Farmers />} />
-        <Route path="/SupplyDashboard" element={<SupplyDashboard />} />
+        <Route path="/SupplyPlanning" element={<SupplyPlanning />} />
         <Route path="/procurement" element={<Procurement />} />
         <Route path="/aggregators" element={<Aggregators />} />
         <Route path="/contracts" element={<Contracts />} />
@@ -50,4 +50,3 @@ function App() {
 }
 
 export default App;
-
