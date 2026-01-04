@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Table,
   TableBody,
@@ -32,6 +33,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { 
   Users, 
   Search, 
@@ -134,23 +142,41 @@ export default function Farmers() {
         return;
       }
 
+      if (!formData.county.trim()) {
+        toast.error('County is required');
+        return;
+      }
+
       const newFarmer = {
-        ...formData,
+        name: formData.name.trim(),
+        gender: formData.gender,
+        ageGroup: formData.ageGroup,
+        county: formData.county.trim(),
+        ward: formData.ward.trim(),
+        crop: formData.crop.trim(),
+        variety: formData.variety.trim(),
         acreage: parseFloat(formData.acreage) || 0,
         estimatedYield: parseFloat(formData.estimatedYield) || 0,
+        contact: formData.contact.trim(),
         harvestWindowStart: new Date().toISOString(),
         harvestWindowEnd: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
         status: 'active'
       };
 
-      await apiService.farmers.create(newFarmer);
-      toast.success('Farmer added successfully');
-      setIsAddDialogOpen(false);
-      resetForm();
-      fetchFarmers(); // Refresh list
+      // Call API to create farmer
+      const createdFarmer = await apiService.farmers.create(newFarmer);
+      
+      if (createdFarmer) {
+        toast.success('Farmer added successfully');
+        setIsAddDialogOpen(false);
+        resetForm();
+        fetchFarmers(); // Refresh list
+      } else {
+        throw new Error('Failed to create farmer');
+      }
     } catch (error) {
       console.error('Error adding farmer:', error);
-      toast.error('Failed to add farmer');
+      toast.error(error.message || 'Failed to add farmer');
     }
   };
 
@@ -162,10 +188,22 @@ export default function Farmers() {
         return;
       }
 
+      if (!formData.county.trim()) {
+        toast.error('County is required');
+        return;
+      }
+
       const updatedFarmer = {
-        ...formData,
+        name: formData.name.trim(),
+        gender: formData.gender,
+        ageGroup: formData.ageGroup,
+        county: formData.county.trim(),
+        ward: formData.ward.trim(),
+        crop: formData.crop.trim(),
+        variety: formData.variety.trim(),
         acreage: parseFloat(formData.acreage) || 0,
         estimatedYield: parseFloat(formData.estimatedYield) || 0,
+        contact: formData.contact.trim(),
         id: selectedFarmer.id
       };
 
@@ -290,131 +328,151 @@ export default function Farmers() {
                     Add Farmer
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-md">
-                  <DialogHeader>
+                <DialogContent className="max-w-md max-h-[90vh] overflow-hidden flex flex-col">
+                  <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
                     <DialogTitle>Add New Farmer</DialogTitle>
                     <DialogDescription>
                       Enter the farmer's details below. Click save when you're done.
                     </DialogDescription>
                   </DialogHeader>
                   
-                  <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Full Name *</label>
-                        <Input
-                          name="name"
-                          value={formData.name}
-                          onChange={handleInputChange}
-                          placeholder="John Doe"
-                        />
+                  <div className="overflow-y-auto flex-1 p-6">
+                    <div className="grid gap-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="name">Full Name *</Label>
+                          <Input
+                            id="name"
+                            name="name"
+                            value={formData.name}
+                            onChange={handleInputChange}
+                            placeholder="John Doe"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="gender">Gender</Label>
+                          <Select
+                            value={formData.gender}
+                            onValueChange={(value) => handleSelectChange('gender', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select gender" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="male">Male</SelectItem>
+                              <SelectItem value="female">Female</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
+
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Gender</label>
-                        <select
-                          name="gender"
-                          value={formData.gender}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-2 border rounded-md"
+                        <Label htmlFor="ageGroup">Age Group</Label>
+                        <Select
+                          value={formData.ageGroup}
+                          onValueChange={(value) => handleSelectChange('ageGroup', value)}
                         >
-                          <option value="male">Male</option>
-                          <option value="female">Female</option>
-                        </select>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select age group" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="18-30">18-30</SelectItem>
+                            <SelectItem value="31-45">31-45</SelectItem>
+                            <SelectItem value="46-60">46-60</SelectItem>
+                            <SelectItem value="60+">60+</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
-                    </div>
 
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Age Group</label>
-                      <select
-                        name="ageGroup"
-                        value={formData.ageGroup}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-2 border rounded-md"
-                      >
-                        <option value="18-30">18-30</option>
-                        <option value="31-45">31-45</option>
-                        <option value="46-60">46-60</option>
-                        <option value="60+">60+</option>
-                      </select>
-                    </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="county">County *</Label>
+                          <Input
+                            id="county"
+                            name="county"
+                            value={formData.county}
+                            onChange={handleInputChange}
+                            placeholder="e.g., Nakuru"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="ward">Ward/Sub-County</Label>
+                          <Input
+                            id="ward"
+                            name="ward"
+                            value={formData.ward}
+                            onChange={handleInputChange}
+                            placeholder="e.g., Njoro"
+                          />
+                        </div>
+                      </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">County *</label>
-                        <Input
-                          name="county"
-                          value={formData.county}
-                          onChange={handleInputChange}
-                          placeholder="e.g., Nakuru"
-                        />
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="crop">Crop Type</Label>
+                          <Input
+                            id="crop"
+                            name="crop"
+                            value={formData.crop}
+                            onChange={handleInputChange}
+                            placeholder="e.g., Wheat"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="variety">Variety</Label>
+                          <Input
+                            id="variety"
+                            name="variety"
+                            value={formData.variety}
+                            onChange={handleInputChange}
+                            placeholder="e.g., DK 8031"
+                          />
+                        </div>
                       </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Ward/Sub-County</label>
-                        <Input
-                          name="ward"
-                          value={formData.ward}
-                          onChange={handleInputChange}
-                          placeholder="e.g., Njoro"
-                        />
-                      </div>
-                    </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Crop Type</label>
-                        <Input
-                          name="crop"
-                          value={formData.crop}
-                          onChange={handleInputChange}
-                          placeholder="e.g., Wheat"
-                        />
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="acreage">Acreage (acres)</Label>
+                          <Input
+                            id="acreage"
+                            name="acreage"
+                            type="number"
+                            min="0"
+                            step="0.1"
+                            value={formData.acreage}
+                            onChange={handleInputChange}
+                            placeholder="0"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="estimatedYield">Est. Yield (tons)</Label>
+                          <Input
+                            id="estimatedYield"
+                            name="estimatedYield"
+                            type="number"
+                            min="0"
+                            step="0.1"
+                            value={formData.estimatedYield}
+                            onChange={handleInputChange}
+                            placeholder="0"
+                          />
+                        </div>
                       </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Variety</label>
-                        <Input
-                          name="variety"
-                          value={formData.variety}
-                          onChange={handleInputChange}
-                          placeholder="e.g., DK 8031"
-                        />
-                      </div>
-                    </div>
 
-                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Acreage (acres)</label>
+                        <Label htmlFor="contact">Contact</Label>
                         <Input
-                          name="acreage"
-                          type="number"
-                          value={formData.acreage}
+                          id="contact"
+                          name="contact"
+                          value={formData.contact}
                           onChange={handleInputChange}
-                          placeholder="0"
+                          placeholder="Phone or email"
                         />
                       </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Est. Yield (tons)</label>
-                        <Input
-                          name="estimatedYield"
-                          type="number"
-                          value={formData.estimatedYield}
-                          onChange={handleInputChange}
-                          placeholder="0"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Contact</label>
-                      <Input
-                        name="contact"
-                        value={formData.contact}
-                        onChange={handleInputChange}
-                        placeholder="Phone or email"
-                      />
                     </div>
                   </div>
 
-                  <DialogFooter>
+                  <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
                     <Button variant="outline" onClick={() => {
                       setIsAddDialogOpen(false);
                       resetForm();
@@ -523,8 +581,9 @@ export default function Farmers() {
                               variant="ghost"
                               size="sm"
                               onClick={() => openDeleteDialog(farmer)}
+                              className="text-red-500 hover:text-red-700"
                             >
-                              <Trash2 className="h-4 w-4 text-red-500" />
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         </TableCell>
@@ -553,131 +612,151 @@ export default function Farmers() {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
             <DialogTitle>Edit Farmer</DialogTitle>
             <DialogDescription>
               Update the farmer's details below.
             </DialogDescription>
           </DialogHeader>
           
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Full Name *</label>
-                <Input
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  placeholder="John Doe"
-                />
+          <div className="overflow-y-auto flex-1 p-6">
+            <div className="grid gap-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-name">Full Name *</Label>
+                  <Input
+                    id="edit-name"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    placeholder="John Doe"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-gender">Gender</Label>
+                  <Select
+                    value={formData.gender}
+                    onValueChange={(value) => handleSelectChange('gender', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select gender" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="male">Male</SelectItem>
+                      <SelectItem value="female">Female</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
+
               <div className="space-y-2">
-                <label className="text-sm font-medium">Gender</label>
-                <select
-                  name="gender"
-                  value={formData.gender}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border rounded-md"
+                <Label htmlFor="edit-ageGroup">Age Group</Label>
+                <Select
+                  value={formData.ageGroup}
+                  onValueChange={(value) => handleSelectChange('ageGroup', value)}
                 >
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                </select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select age group" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="18-30">18-30</SelectItem>
+                    <SelectItem value="31-45">31-45</SelectItem>
+                    <SelectItem value="46-60">46-60</SelectItem>
+                    <SelectItem value="60+">60+</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Age Group</label>
-              <select
-                name="ageGroup"
-                value={formData.ageGroup}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border rounded-md"
-              >
-                <option value="18-30">18-30</option>
-                <option value="31-45">31-45</option>
-                <option value="46-60">46-60</option>
-                <option value="60+">60+</option>
-              </select>
-            </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-county">County *</Label>
+                  <Input
+                    id="edit-county"
+                    name="county"
+                    value={formData.county}
+                    onChange={handleInputChange}
+                    placeholder="e.g., Nakuru"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-ward">Ward/Sub-County</Label>
+                  <Input
+                    id="edit-ward"
+                    name="ward"
+                    value={formData.ward}
+                    onChange={handleInputChange}
+                    placeholder="e.g., Njoro"
+                  />
+                </div>
+              </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">County *</label>
-                <Input
-                  name="county"
-                  value={formData.county}
-                  onChange={handleInputChange}
-                  placeholder="e.g., Nakuru"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-crop">Crop Type</Label>
+                  <Input
+                    id="edit-crop"
+                    name="crop"
+                    value={formData.crop}
+                    onChange={handleInputChange}
+                    placeholder="e.g., Wheat"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-variety">Variety</Label>
+                  <Input
+                    id="edit-variety"
+                    name="variety"
+                    value={formData.variety}
+                    onChange={handleInputChange}
+                    placeholder="e.g., DK 8031"
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Ward/Sub-County</label>
-                <Input
-                  name="ward"
-                  value={formData.ward}
-                  onChange={handleInputChange}
-                  placeholder="e.g., Njoro"
-                />
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Crop Type</label>
-                <Input
-                  name="crop"
-                  value={formData.crop}
-                  onChange={handleInputChange}
-                  placeholder="e.g., Wheat"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-acreage">Acreage (acres)</Label>
+                  <Input
+                    id="edit-acreage"
+                    name="acreage"
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={formData.acreage}
+                    onChange={handleInputChange}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-estimatedYield">Est. Yield (tons)</Label>
+                  <Input
+                    id="edit-estimatedYield"
+                    name="estimatedYield"
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={formData.estimatedYield}
+                    onChange={handleInputChange}
+                    placeholder="0"
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Variety</label>
-                <Input
-                  name="variety"
-                  value={formData.variety}
-                  onChange={handleInputChange}
-                  placeholder="e.g., DK 8031"
-                />
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Acreage (acres)</label>
+                <Label htmlFor="edit-contact">Contact</Label>
                 <Input
-                  name="acreage"
-                  type="number"
-                  value={formData.acreage}
+                  id="edit-contact"
+                  name="contact"
+                  value={formData.contact}
                   onChange={handleInputChange}
-                  placeholder="0"
+                  placeholder="Phone or email"
                 />
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Est. Yield (tons)</label>
-                <Input
-                  name="estimatedYield"
-                  type="number"
-                  value={formData.estimatedYield}
-                  onChange={handleInputChange}
-                  placeholder="0"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Contact</label>
-              <Input
-                name="contact"
-                value={formData.contact}
-                onChange={handleInputChange}
-                placeholder="Phone or email"
-              />
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
             <Button variant="outline" onClick={() => {
               setIsEditDialogOpen(false);
               resetForm();
