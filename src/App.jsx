@@ -20,11 +20,11 @@ function App() {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/farmers" element={<Farmers />} />
+        <Route path="/SupplyDashboard" element={<SupplyDashboard />} />
         <Route path="/procurement" element={<Procurement />} />
         <Route path="/aggregators" element={<Aggregators />} />
         <Route path="/contracts" element={<Contracts />} />
         <Route path="/analytics" element={<Analytics />} />
-        <Route path="/SupplyDashboard" element={<SupplyDashboard />} />
         <Route path="/onboarding" element={<Onboarding />} />
         <Route path="/settings" element={<Settings />} />
       </Routes>
@@ -50,3 +50,4 @@ function App() {
 }
 
 export default App;
+
