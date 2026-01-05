@@ -811,3 +811,1444 @@ Procurement Team`;
       </Badge>;
     }
     
+    if (order.quantityAccepted === 0) {
+      return <Badge variant="destructive" className="gap-1">
+        <PackageX className="h-3 w-3" />
+        Rejected
+      </Badge>;
+    } else if (order.quantityAccepted < order.quantityDelivered) {
+      return <Badge variant="warning" className="gap-1">
+        <AlertTriangle className="h-3 w-3" />
+        Partial
+      </Badge>;
+    } else {
+      return <Badge variant="success" className="gap-1">
+        <PackageCheck className="h-3 w-3" />
+        Received
+      </Badge>;
+    }
+  };
+
+  // Payment status badge
+  const getPaymentBadge = (status) => {
+    switch (status) {
+      case 'paid':
+        return <Badge variant="success" className="gap-1">
+          <CheckCircle className="h-3 w-3" />
+          Paid
+        </Badge>;
+      case 'partial':
+        return <Badge variant="warning" className="gap-1">
+          <AlertTriangle className="h-3 w-3" />
+          Partial
+        </Badge>;
+      default:
+        return <Badge variant="outline" className="gap-1">
+          <Clock className="h-3 w-3" />
+          Pending
+        </Badge>;
+    }
+  };
+
+  // Get contact info for display
+  const getContactInfo = (order) => {
+    const info = [];
+    if (order.supplierPhone) info.push({ type: 'phone', value: order.supplierPhone });
+    if (order.supplierEmail) info.push({ type: 'email', value: order.supplierEmail });
+    return info;
+  };
+
+  // Empty state component
+  const EmptyState = ({ message, action }) => (
+    <div className="text-center py-12">
+      <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
+        <Package className="h-8 w-8 text-gray-400" />
+      </div>
+      <h3 className="text-lg font-semibold text-gray-700 mb-2">
+        No Procurement Orders Yet
+      </h3>
+      <p className="text-gray-500 mb-6 max-w-md mx-auto">
+        {message}
+      </p>
+      <Button onClick={action}>
+        <Plus className="h-4 w-4 mr-2" />
+        Create First Order
+      </Button>
+    </div>
+  );
+
+  // Debug panel component
+  const DebugPanel = () => (
+    <div className="fixed bottom-4 right-4 z-50">
+      <Button 
+        onClick={() => setShowDebug(!showDebug)}
+        className="bg-red-600 hover:bg-red-700"
+        size="sm"
+      >
+        <Bug className="h-4 w-4 mr-2" />
+        Debug
+      </Button>
+      
+      {showDebug && (
+        <div className="absolute bottom-full right-0 mb-2 w-96 max-h-96 overflow-auto bg-gray-900 text-white p-4 rounded-lg shadow-xl">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="font-bold">Debug Data</h3>
+            <Button 
+              onClick={() => setShowDebug(false)}
+              size="sm"
+              variant="ghost"
+              className="text-white hover:bg-gray-800"
+            >
+              Close
+            </Button>
+          </div>
+          
+          <div className="space-y-4 text-sm">
+            <div>
+              <h4 className="font-semibold text-green-400">Summary:</h4>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-gray-800 p-2 rounded">
+                  <div className="font-medium">Farmers Count:</div>
+                  <div>{farmers.length}</div>
+                </div>
+                <div className="bg-gray-800 p-2 rounded">
+                  <div className="font-medium">Allocations Count:</div>
+                  <div>{supplyAllocations.length}</div>
+                </div>
+                <div className="bg-gray-800 p-2 rounded">
+                  <div className="font-medium">Scheduled Allocations:</div>
+                  <div>{supplyAllocations.filter(a => a.status === 'scheduled').length}</div>
+                </div>
+                <div className="bg-gray-800 p-2 rounded">
+                  <div className="font-medium">Available Farmers:</div>
+                  <div>{getFarmersWithAllocations().length}</div>
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <h4 className="font-semibold text-blue-400">Farmers Data (First):</h4>
+              <pre className="bg-gray-800 p-2 rounded overflow-auto max-h-32">
+                {JSON.stringify(farmers[0] || {}, null, 2)}
+              </pre>
+            </div>
+            
+            <div>
+              <h4 className="font-semibold text-yellow-400">Allocations Data (First):</h4>
+              <pre className="bg-gray-800 p-2 rounded overflow-auto max-h-32">
+                {JSON.stringify(supplyAllocations[0] || {}, null, 2)}
+              </pre>
+            </div>
+            
+            <div>
+              <h4 className="font-semibold text-purple-400">getFarmersWithAllocations():</h4>
+              <pre className="bg-gray-800 p-2 rounded overflow-auto max-h-32">
+                {JSON.stringify(getFarmersWithAllocations(), null, 2)}
+              </pre>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // Loading state
+  if (loading) {
+    return (
+      <DashboardLayout
+        title="Procurement Management"
+        description="Two-step procurement process: Order → Goods Receipt"
+      >
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+            <p className="mt-4 text-muted-foreground">Loading procurement data...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  return (
+    <DashboardLayout
+      title="Procurement Management"
+      description="Two-step procurement process: Order → Goods Receipt"
+    >
+      {/* Debug Panel */}
+      <DebugPanel />
+      
+      {/* Summary Cards */}
+      <div className="grid gap-4 md:grid-cols-5 mb-6">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <div className="flex items-center justify-center mb-2">
+                <Calendar className="h-5 w-5 text-blue-600 mr-2" />
+                <p className="text-2xl font-bold">{stats.pendingDelivery}</p>
+              </div>
+              <p className="text-sm text-muted-foreground">Pending Delivery</p>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <div className="flex items-center justify-center mb-2">
+                <DollarSign className="h-5 w-5 text-amber-600 mr-2" />
+                <p className="text-2xl font-bold">{stats.pendingPayment}</p>
+              </div>
+              <p className="text-sm text-muted-foreground">Pending Payment</p>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <div className="flex items-center justify-center mb-2">
+                <Truck className="h-5 w-5 text-green-600 mr-2" />
+                <p className="text-2xl font-bold">{stats.totalDeliveredToday}</p>
+              </div>
+              <p className="text-sm text-muted-foreground">Tons Delivered Today</p>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <div className="flex items-center justify-center mb-2">
+                <TrendingUp className="h-5 w-5 text-purple-600 mr-2" />
+                <p className="text-2xl font-bold">KES {stats.totalValueToday}</p>
+              </div>
+              <p className="text-sm text-muted-foreground">Today's Value</p>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <div className="flex items-center justify-center mb-2">
+                <AlertTriangle className="h-5 w-5 text-red-600 mr-2" />
+                <p className="text-2xl font-bold">{stats.rejectionRate}%</p>
+              </div>
+              <p className="text-sm text-muted-foreground">Rejection Rate</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Tabs for Step 1 and Step 2 */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="bg-muted/50 p-1">
+          <TabsTrigger value="step1" className="gap-2">
+            <Mail className="h-4 w-4" />
+            Step 1: Send Order
+          </TabsTrigger>
+          <TabsTrigger value="step2" className="gap-2">
+            <PackageCheck className="h-4 w-4" />
+            Step 2: Goods Receipt
+          </TabsTrigger>
+          <TabsTrigger value="all" className="gap-2">
+            <FileText className="h-4 w-4" />
+            All Orders
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Step 1 Content: Send Order */}
+        <TabsContent value="step1" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Mail className="h-5 w-5 text-primary" />
+                    Send Procurement Orders
+                  </CardTitle>
+                  <CardDescription>
+                    Step 1: Create and send orders to farmers/aggregators based on supply allocations
+                  </CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    size="sm"
+                    variant="outline"
+                    onClick={fetchData}
+                    title="Refresh data from backend"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                  <Dialog open={isStep1DialogOpen} onOpenChange={(open) => {
+                    setIsStep1DialogOpen(open);
+                    if (open) {
+                      fetchData();
+                    }
+                  }}>
+                    <DialogTrigger asChild>
+                      <Button size="sm">
+                        <Plus className="h-4 w-4 mr-2" />
+                        New Order
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+                      <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
+                        <DialogTitle>Step 1: Create Procurement Order</DialogTitle>
+                        <DialogDescription>
+                          Send order to farmer/aggregator before delivery date
+                        </DialogDescription>
+                      </DialogHeader>
+                      
+                      <div className="overflow-y-auto flex-1 p-6">
+                        <div className="grid gap-6">
+                          {/* Supplier Type */}
+                          <div className="space-y-2">
+                            <Label htmlFor="supplierType">Supplier Type *</Label>
+                            <select
+                              id="supplierType"
+                              name="supplierType"
+                              value={step1Form.supplierType}
+                              onChange={(e) => handleStep1SelectChange('supplierType', e.target.value)}
+                              className="w-full p-2.5 border border-gray-300 rounded-md bg-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            >
+                              <option value="farmer">Farmer (From Supply Planning)</option>
+                              <option value="aggregator">Aggregator</option>
+                              <option value="external">External Supplier</option>
+                            </select>
+                            {step1Form.supplierType === 'farmer' && (
+                              <p className="text-xs text-green-600">
+                                ✓ Farmers with scheduled supply allocations will appear here
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Farmer Selection */}
+                          {step1Form.supplierType === 'farmer' && (
+                            <>
+                              <div className="space-y-2">
+                                <Label htmlFor="farmer">Select Farmer *</Label>
+                                
+                                {/* Debug info */}
+                                <div className="text-xs bg-blue-50 p-2 rounded mb-2">
+                                  <div className="font-medium mb-1">Data Status:</div>
+                                  <div className="grid grid-cols-2 gap-1">
+                                    <span>Farmers loaded:</span>
+                                    <span className={`font-medium ${farmers.length > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                      {farmers.length}
+                                    </span>
+                                    <span>Allocations loaded:</span>
+                                    <span className={`font-medium ${supplyAllocations.length > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                      {supplyAllocations.length}
+                                    </span>
+                                    <span>Scheduled allocations:</span>
+                                    <span className="font-medium text-blue-600">
+                                      {supplyAllocations.filter(a => a.status === 'scheduled').length}
+                                    </span>
+                                    <span>Available farmers:</span>
+                                    <span className={`font-medium ${getFarmersWithAllocations().length > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                      {getFarmersWithAllocations().length}
+                                    </span>
+                                  </div>
+                                </div>
+                                
+                                <select
+                                  id="farmer"
+                                  name="farmerId"
+                                  value={step1Form.farmerId}
+                                  onChange={(e) => {
+                                    console.log('Selected farmer ID:', e.target.value);
+                                    handleStep1SelectChange('farmerId', e.target.value);
+                                  }}
+                                  className="w-full p-2.5 border border-gray-300 rounded-md bg-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                  required={step1Form.supplierType === 'farmer'}
+                                >
+                                  <option value="">-- Choose a farmer with scheduled supply --</option>
+                                  {getFarmersWithAllocations().length === 0 ? (
+                                    <option value="" disabled>
+                                      No farmers with scheduled supply allocations
+                                    </option>
+                                  ) : (
+                                    getFarmersWithAllocations().map(farmer => {
+                                      console.log('Rendering option for farmer:', farmer);
+                                      return (
+                                        <option key={farmer.id} value={farmer.id}>
+                                          🌾 {farmer.name || 'Unnamed Farmer'} 
+                                          {farmer.crop && ` | ${farmer.crop}`}
+                                          {farmer.county && ` | ${farmer.county}`}
+                                          {farmer.allocations?.length > 0 && ` | ${farmer.allocations.length} scheduled`}
+                                        </option>
+                                      );
+                                    })
+                                  )}
+                                </select>
+                              </div>
+                              
+                              {step1Form.farmerId && (
+                                <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                                  <p className="text-sm font-medium text-green-700 mb-2 flex items-center gap-1">
+                                    <Calendar className="h-3 w-3" />
+                                    Available Supply Allocations:
+                                  </p>
+                                  {(() => {
+                                    const selectedFarmer = getFarmersWithAllocations()
+                                      .find(f => f?.id?.toString() === step1Form.farmerId?.toString());
+                                    
+                                    if (!selectedFarmer?.allocations?.length) {
+                                      return (
+                                        <p className="text-sm text-yellow-600">
+                                          No scheduled allocations found for this farmer.
+                                        </p>
+                                      );
+                                    }
+                                    
+                                    return selectedFarmer.allocations.map(allocation => (
+                                      <div key={allocation.id} className="text-sm text-green-600 mb-2 p-2 bg-green-100 rounded">
+                                        <div className="flex items-center justify-between mb-1">
+                                          <span className="font-medium">
+                                            • {allocation.date ? new Date(allocation.date).toLocaleDateString('en-US', { 
+                                              weekday: 'short', 
+                                              month: 'short', 
+                                              day: 'numeric' 
+                                            }) : 'No date'}
+                                          </span>
+                                          <span className="font-bold bg-white px-2 py-0.5 rounded text-xs border border-green-300">
+                                            {allocation.quantity || '0'} tons
+                                          </span>
+                                        </div>
+                                        {allocation.notes && (
+                                          <p className="text-xs text-green-500 pl-2 mt-1">Note: {allocation.notes}</p>
+                                        )}
+                                      </div>
+                                    ));
+                                  })()}
+                                  <p className="text-xs text-green-600 mt-2">
+                                    This information is pre-filled from Supply Planning
+                                  </p>
+                                </div>
+                              )}
+                            </>
+                          )}
+
+                          {/* Aggregator Selection */}
+                          {step1Form.supplierType === 'aggregator' && (
+                            <>
+                              <div className="space-y-2">
+                                <Label htmlFor="aggregator">Select Aggregator *</Label>
+                                <select
+                                  id="aggregator"
+                                  name="aggregatorId"
+                                  value={step1Form.aggregatorId}
+                                  onChange={(e) => handleStep1SelectChange('aggregatorId', e.target.value)}
+                                  className="w-full p-2.5 border border-gray-300 rounded-md bg-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                >
+                                  <option value="">-- Choose an aggregator --</option>
+                                  {aggregators.length === 0 ? (
+                                    <option value="" disabled>No aggregators available</option>
+                                  ) : (
+                                    aggregators.map(aggregator => (
+                                      <option key={aggregator.id} value={aggregator.id}>
+                                        👥 {aggregator.name} | {aggregator.type} | {aggregator.county || 'Location'}
+                                      </option>
+                                    ))
+                                  )}
+                                </select>
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <Label htmlFor="isContracted">Contracted? *</Label>
+                                <select
+                                  id="isContracted"
+                                  name="isContracted"
+                                  value={step1Form.isContracted}
+                                  onChange={(e) => handleStep1SelectChange('isContracted', e.target.value)}
+                                  className="w-full p-2.5 border border-gray-300 rounded-md bg-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                >
+                                  <option value="yes">Yes (Contracted)</option>
+                                  <option value="no">No (Spot Purchase)</option>
+                                </select>
+                              </div>
+                            </>
+                          )}
+
+                          {/* Supplier Details */}
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="supplierName">Supplier Name *</Label>
+                              <Input
+                                id="supplierName"
+                                name="supplierName"
+                                value={step1Form.supplierName}
+                                onChange={handleStep1InputChange}
+                                placeholder="Supplier name"
+                                required
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="supplierPhone" className="flex items-center gap-1">
+                                <Phone className="h-3 w-3" />
+                                Phone *
+                              </Label>
+                              <Input
+                                id="supplierPhone"
+                                name="supplierPhone"
+                                value={step1Form.supplierPhone}
+                                onChange={handleStep1InputChange}
+                                placeholder="+254712345678"
+                                required
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="supplierEmail" className="flex items-center gap-1">
+                                <Mail className="h-3 w-3" />
+                                Email
+                              </Label>
+                              <Input
+                                id="supplierEmail"
+                                name="supplierEmail"
+                                type="email"
+                                value={step1Form.supplierEmail}
+                                onChange={handleStep1InputChange}
+                                placeholder="supplier@example.com"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="cropName">Crop Name</Label>
+                              <Input
+                                id="cropName"
+                                name="cropName"
+                                value={step1Form.cropName}
+                                onChange={handleStep1InputChange}
+                                placeholder="e.g., Wheat, Corn..."
+                              />
+                            </div>
+                          </div>
+
+                          {/* Order Details */}
+                          <div className="grid grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="quantityOrdered">Quantity (tons) *</Label>
+                              <Input
+                                id="quantityOrdered"
+                                name="quantityOrdered"
+                                type="number"
+                                step="0.1"
+                                value={step1Form.quantityOrdered}
+                                onChange={handleStep1InputChange}
+                                placeholder="0"
+                                required
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="pricePerUnit">Price/ton (KES)</Label>
+                              <Input
+                                id="pricePerUnit"
+                                name="pricePerUnit"
+                                type="number"
+                                value={step1Form.pricePerUnit}
+                                onChange={handleStep1InputChange}
+                                placeholder="15000"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="deliveryDate">Delivery Date *</Label>
+                              <Input
+                                id="deliveryDate"
+                                name="deliveryDate"
+                                type="date"
+                                value={step1Form.deliveryDate}
+                                onChange={handleStep1InputChange}
+                                required
+                              />
+                            </div>
+                          </div>
+
+                          {/* LPO and Order Date */}
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="lpoNumber">LPO Number</Label>
+                              <Input
+                                id="lpoNumber"
+                                name="lpoNumber"
+                                value={step1Form.lpoNumber}
+                                onChange={handleStep1InputChange}
+                                placeholder="LPO-2024-001"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="orderDate">Order Date *</Label>
+                              <Input
+                                id="orderDate"
+                                name="orderDate"
+                                type="date"
+                                value={step1Form.orderDate}
+                                onChange={handleStep1InputChange}
+                                required
+                              />
+                            </div>
+                          </div>
+
+                          {/* Notes */}
+                          <div className="space-y-2">
+                            <Label htmlFor="notes">Order Notes</Label>
+                            <Textarea
+                              id="notes"
+                              name="notes"
+                              value={step1Form.notes}
+                              onChange={handleStep1InputChange}
+                              placeholder="Additional information about this order..."
+                              rows={3}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
+                        <Button variant="outline" onClick={() => {
+                          setIsStep1DialogOpen(false);
+                          resetStep1Form();
+                        }}>
+                          Cancel
+                        </Button>
+                        <Button 
+                          onClick={handleCreateOrder}
+                          disabled={!step1Form.supplierName || !step1Form.quantityOrdered || !step1Form.deliveryDate}
+                        >
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Create & Send Order
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </div>
+            </CardHeader>
+            
+            <CardContent>
+              {/* Orders waiting for goods receipt */}
+              <div className="space-y-4">
+                <h3 className="font-medium">Orders Awaiting Goods Receipt (Step 2)</h3>
+                {orders.filter(order => !order.goodsReceived).length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No orders awaiting goods receipt
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Quick Send Actions */}
+                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div>
+                          <h4 className="font-medium text-blue-800">Quick Send Actions</h4>
+                          <p className="text-sm text-blue-600">
+                            Send order notifications to all suppliers awaiting confirmation
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleSendBulkMessages('whatsapp')}
+                            className="gap-2 hover:bg-green-50"
+                          >
+                            <MessageSquare className="h-4 w-4 text-green-600" />
+                            Bulk WhatsApp
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleSendBulkMessages('email')}
+                            className="gap-2 hover:bg-blue-50"
+                          >
+                            <Mail className="h-4 w-4 text-blue-600" />
+                            Bulk Email
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={fetchData}
+                            className="gap-2 hover:bg-gray-50"
+                          >
+                            <RefreshCw className="h-4 w-4" />
+                            Refresh
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Individual Orders Table */}
+                    <div className="rounded-lg border overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/50">
+                            <TableHead>Order Date</TableHead>
+                            <TableHead>Supplier</TableHead>
+                            <TableHead>Contact</TableHead>
+                            <TableHead>Crop</TableHead>
+                            <TableHead>Quantity</TableHead>
+                            <TableHead>Delivery Date</TableHead>
+                            <TableHead>LPO</TableHead>
+                            <TableHead className="text-center">Send Order</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {orders
+                            .filter(order => !order.goodsReceived)
+                            .map(order => {
+                              const contactInfo = getContactInfo(order);
+                              return (
+                                <TableRow key={order.id}>
+                                  <TableCell>
+                                    {new Date(order.orderDate).toLocaleDateString()}
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="font-medium">{order.supplierName}</div>
+                                    <div className="text-xs text-muted-foreground">
+                                      {order.supplierType === 'farmer' ? 'Farmer' : 'Aggregator'}
+                                      {order.isContracted && ' • Contracted'}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="space-y-1">
+                                      {contactInfo.length > 0 ? (
+                                        contactInfo.map((info, index) => (
+                                          <div key={index} className="flex items-center gap-1 text-sm">
+                                            {info.type === 'phone' ? (
+                                              <Phone className="h-3 w-3 text-blue-600" />
+                                            ) : (
+                                              <Mail className="h-3 w-3 text-green-600" />
+                                            )}
+                                            <span className={info.type === 'phone' ? 'text-blue-600' : 'text-green-600'}>
+                                              {info.value}
+                                            </span>
+                                          </div>
+                                        ))
+                                      ) : (
+                                        <span className="text-sm text-muted-foreground">No contact</span>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex items-center gap-1">
+                                      <Sprout className="h-3 w-3 text-green-600" />
+                                      {order.cropName || '-'}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="font-medium">{order.quantityOrdered}t</div>
+                                    <div className="text-xs text-muted-foreground">
+                                      KES {(order.quantityOrdered * order.pricePerUnit).toLocaleString()}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex items-center gap-1">
+                                      <Calendar className="h-3 w-3 text-muted-foreground" />
+                                      {new Date(order.deliveryDate).toLocaleDateString()}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="font-mono text-sm">{order.lpoNumber || '-'}</div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex justify-center gap-1">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleSendOrder(order, 'whatsapp')}
+                                        title="Send via WhatsApp"
+                                        className="h-8 w-8 p-0 hover:bg-green-50"
+                                        disabled={!order.supplierPhone}
+                                      >
+                                        <MessageSquare className="h-4 w-4 text-green-600" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleSendOrder(order, 'email')}
+                                        title="Send via Email"
+                                        className="h-8 w-8 p-0 hover:bg-blue-50"
+                                        disabled={!order.supplierEmail}
+                                      >
+                                        <Mail className="h-4 w-4 text-blue-600" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleSendOrder(order, 'call')}
+                                        title="Call Supplier"
+                                        className="h-8 w-8 p-0 hover:bg-purple-50"
+                                        disabled={!order.supplierPhone}
+                                      >
+                                        <Phone className="h-4 w-4 text-purple-600" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleSendOrder(order, 'sms')}
+                                        title="Send SMS"
+                                        className="h-8 w-8 p-0 hover:bg-orange-50"
+                                        disabled={!order.supplierPhone}
+                                      >
+                                        <Send className="h-4 w-4 text-orange-600" />
+                                      </Button>
+                                    </div>
+                                    <div className="text-xs text-center mt-1 text-muted-foreground">
+                                      {order.supplierPhone || order.supplierEmail ? 'Click to send' : 'No contact'}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <div className="flex justify-end gap-2">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                          const message = `Order #${order.id}\nSupplier: ${order.supplierName}\nCrop: ${order.cropName}\nQuantity: ${order.quantityOrdered}t\nDelivery: ${new Date(order.deliveryDate).toLocaleDateString()}\nLPO: ${order.lpoNumber}`;
+                                          navigator.clipboard.writeText(message);
+                                          toast.success('Order details copied');
+                                        }}
+                                        className="h-8"
+                                      >
+                                        <Copy className="h-4 w-4 mr-2" />
+                                        Copy
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => openStep2Dialog(order)}
+                                      >
+                                        <ClipboardCheck className="h-4 w-4 mr-2" />
+                                        Receipt
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })
+                          }
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Step 2 Content: Goods Receipt */}
+        <TabsContent value="step2" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <PackageCheck className="h-5 w-5 text-primary" />
+                    Goods Receipt & Quality Check
+                  </CardTitle>
+                  <CardDescription>
+                    Step 2: Record goods received at warehouse and quality assessment
+                  </CardDescription>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {orders.filter(order => !order.goodsReceived).length} orders pending receipt
+                </div>
+              </div>
+            </CardHeader>
+            
+            <CardContent>
+              {orders.filter(order => !order.goodsReceived).length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 mb-4">
+                    <CheckCircle className="h-8 w-8 text-green-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-700 mb-2">
+                    All Goods Received
+                  </h3>
+                  <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                    All orders have been processed through goods receipt.
+                    Create new orders in Step 1 when needed.
+                  </p>
+                  <Button onClick={() => setActiveTab('step1')}>
+                    <Mail className="h-4 w-4 mr-2" />
+                    Go to Step 1
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="rounded-lg border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/50">
+                          <TableHead>Order Details</TableHead>
+                          <TableHead>Supplier</TableHead>
+                          <TableHead>Ordered Qty</TableHead>
+                          <TableHead>Delivery Date</TableHead>
+                          <TableHead>LPO</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {orders
+                          .filter(order => !order.goodsReceived)
+                          .map(order => (
+                            <TableRow key={order.id}>
+                              <TableCell>
+                                <div>
+                                  <p className="font-medium">#{order.id} - {order.cropName}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    Ordered: {new Date(order.orderDate).toLocaleDateString()}
+                                  </p>
+                                </div>
+                              </TableCell>
+                              <TableCell className="font-medium">
+                                <div>{order.supplierName}</div>
+                                {order.isContracted && (
+                                  <Badge variant="outline" className="mt-1 text-xs">Contracted</Badge>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <div className="font-medium">{order.quantityOrdered}t</div>
+                                <div className="text-xs text-muted-foreground">
+                                  KES {(order.quantityOrdered * order.pricePerUnit).toLocaleString()}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-1">
+                                  <Calendar className="h-3 w-3 text-muted-foreground" />
+                                  {new Date(order.deliveryDate).toLocaleDateString()}
+                                </div>
+                              </TableCell>
+                              <TableCell>{order.lpoNumber || '-'}</TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => openStep2Dialog(order)}
+                                  >
+                                    <ClipboardCheck className="h-4 w-4 mr-2" />
+                                    Record Receipt
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => openNotesDialog(order)}
+                                  >
+                                    <FileText className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        }
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* All Orders Tab */}
+        <TabsContent value="all" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-primary" />
+                    All Procurement Orders
+                  </CardTitle>
+                  <CardDescription>
+                    View and manage all procurement orders
+                  </CardDescription>
+                </div>
+                <div className="flex gap-3">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Search orders..."
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="w-full sm:w-64 pl-9"
+                      disabled={orders.length === 0}
+                    />
+                  </div>
+                  <Button onClick={() => setActiveTab('step1')}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    New Order
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            
+            <CardContent>
+              {orders.length === 0 ? (
+                <EmptyState 
+                  message="Start your procurement process by creating your first order in Step 1."
+                  action={() => setActiveTab('step1')}
+                />
+              ) : (
+                <>
+                  <div className="rounded-lg border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/50">
+                          <TableHead>Order ID</TableHead>
+                          <TableHead>Supplier</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Crop</TableHead>
+                          <TableHead className="text-center">Ordered</TableHead>
+                          <TableHead className="text-center">Delivered</TableHead>
+                          <TableHead className="text-center">Accepted</TableHead>
+                          <TableHead>Delivery Status</TableHead>
+                          <TableHead>Payment</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredOrders.map(order => {
+                          const rejectedPercentage = order.quantityDelivered > 0 
+                            ? (order.quantityRejected / order.quantityDelivered * 100).toFixed(1)
+                            : 0;
+                          
+                          return (
+                            <TableRow key={order.id} className="hover:bg-muted/30">
+                              <TableCell className="font-medium">
+                                <div>#{order.id}</div>
+                                {order.lpoNumber && (
+                                  <div className="text-xs text-muted-foreground">
+                                    {order.lpoNumber}
+                                  </div>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <div className="font-medium">{order.supplierName}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {order.farmerId ? 'Farmer' : order.aggregatorId ? 'Aggregator' : 'External'}
+                                  {order.isContracted && ' • Contracted'}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={order.farmerId ? 'farmer' : 'outline'}>
+                                  {order.farmerId ? 'Farmer' : 'Other'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-1">
+                                  <Sprout className="h-3 w-3 text-green-600" />
+                                  {order.cropName || '-'}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-center font-medium">
+                                <div>{order.quantityOrdered}t</div>
+                                <div className="text-xs text-muted-foreground">
+                                  KES {(order.quantityOrdered * order.pricePerUnit).toLocaleString()}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {order.quantityDelivered > 0 ? (
+                                  <span className="font-medium">{order.quantityDelivered}t</span>
+                                ) : (
+                                  <span className="text-muted-foreground">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {order.quantityAccepted > 0 ? (
+                                  <div>
+                                    <span className="font-medium text-green-600">{order.quantityAccepted}t</span>
+                                    {order.quantityRejected > 0 && (
+                                      <div className="text-xs text-red-500">
+                                        ({rejectedPercentage}% rejected)
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell>{getStatusBadge(order)}</TableCell>
+                              <TableCell>{getPaymentBadge(order.paymentStatus)}</TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-2">
+                                  {!order.goodsReceived && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => openStep2Dialog(order)}
+                                      className="h-8 px-2"
+                                      title="Record Goods Receipt"
+                                    >
+                                      <ClipboardCheck className="h-3 w-3" />
+                                    </Button>
+                                  )}
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => openPaymentDialog(order)}
+                                    className="h-8 px-2"
+                                    title="Update Payment"
+                                  >
+                                    <DollarSign className="h-3 w-3" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => openNotesDialog(order)}
+                                    className="h-8 px-2"
+                                    title="Add Notes"
+                                  >
+                                    <FileText className="h-3 w-3" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => openDeleteDialog(order)}
+                                    className="h-8 px-2"
+                                    title="Delete Order"
+                                  >
+                                    <Trash2 className="h-3 w-3 text-red-500" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  
+                  {filteredOrders.length === 0 && search && (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground">No orders found matching "{search}"</p>
+                      <Button
+                        variant="link"
+                        onClick={() => setSearch('')}
+                        className="mt-2"
+                      >
+                        Clear search
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Step 2 Dialog: Goods Receipt */}
+      <Dialog open={isStep2DialogOpen} onOpenChange={setIsStep2DialogOpen}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
+            <DialogTitle>Step 2: Record Goods Receipt</DialogTitle>
+            <DialogDescription>
+              Update when goods are delivered to warehouse
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="overflow-y-auto flex-1 p-6">
+            <div className="grid gap-4">
+              {step2Form.orderId && (
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <p className="text-sm font-medium text-blue-700">
+                    Recording receipt for Order #{step2Form.orderId}
+                  </p>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="quantityDelivered">Delivered Quantity (tons) *</Label>
+                <Input
+                  id="quantityDelivered"
+                  name="quantityDelivered"
+                  type="number"
+                  step="0.1"
+                  value={step2Form.quantityDelivered}
+                  onChange={handleStep2InputChange}
+                  placeholder="Enter delivered quantity"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="quantityAccepted">Accepted Quantity (tons)</Label>
+                <Input
+                  id="quantityAccepted"
+                  name="quantityAccepted"
+                  type="number"
+                  step="0.1"
+                  value={step2Form.quantityAccepted}
+                  onChange={handleStep2InputChange}
+                  placeholder="Enter accepted quantity"
+                />
+              </div>
+
+              {step2Form.quantityRejected > 0 && (
+                <div className="p-3 bg-red-50 rounded-lg">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-red-700">
+                      Rejected: {step2Form.quantityRejected}t
+                    </span>
+                    <Badge variant="destructive">Rejected</Badge>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="rejectionReason">Rejection Reason (if any)</Label>
+                <select
+                  id="rejectionReason"
+                  name="rejectionReason"
+                  value={step2Form.rejectionReason}
+                  onChange={(e) => handleStep2SelectChange('rejectionReason', e.target.value)}
+                  className="w-full p-2.5 border border-gray-300 rounded-md bg-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">No rejection</option>
+                  <option value="poor_quality">Poor Quality</option>
+                  <option value="wrong_variety">Wrong Variety</option>
+                  <option value="contamination">Contamination</option>
+                  <option value="moisture_high">High Moisture</option>
+                  <option value="delayed_delivery">Delayed Delivery</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="actualDeliveryDate">Actual Delivery Date</Label>
+                <Input
+                  id="actualDeliveryDate"
+                  name="actualDeliveryDate"
+                  type="date"
+                  value={step2Form.actualDeliveryDate}
+                  onChange={handleStep2InputChange}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="notes">Notes</Label>
+                <Textarea
+                  id="notes"
+                  name="notes"
+                  value={step2Form.notes}
+                  onChange={handleStep2InputChange}
+                  placeholder="Additional notes about delivery..."
+                  rows={3}
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
+            <Button variant="outline" onClick={() => {
+              setIsStep2DialogOpen(false);
+              resetStep2Form();
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={handleRecordGoodsReceipt}>
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Record Goods Receipt
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Dialog */}
+      <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
+            <DialogTitle>Update Payment Status</DialogTitle>
+            <DialogDescription>
+              Update payment information for order
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="overflow-y-auto flex-1 p-6">
+            <div className="grid gap-4">
+              {selectedOrderForPayment && (
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <p className="text-sm font-medium text-blue-700">
+                    Order #{selectedOrderForPayment.id} - {selectedOrderForPayment.supplierName}
+                  </p>
+                  <p className="text-sm text-blue-600">
+                    Amount Due: KES {(selectedOrderForPayment.quantityAccepted * selectedOrderForPayment.pricePerUnit).toLocaleString()}
+                  </p>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="paymentStatus">Payment Status</Label>
+                <select
+                  id="paymentStatus"
+                  name="paymentStatus"
+                  value={paymentForm.paymentStatus}
+                  onChange={(e) => setPaymentForm(prev => ({ ...prev, paymentStatus: e.target.value }))}
+                  className="w-full p-2.5 border border-gray-300 rounded-md bg-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="pending">Pending</option>
+                  <option value="partial">Partial Payment</option>
+                  <option value="paid">Paid</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="amountPaid">Amount Paid (KES)</Label>
+                  <Input
+                    id="amountPaid"
+                    name="amountPaid"
+                    type="number"
+                    value={paymentForm.amountPaid}
+                    onChange={handlePaymentInputChange}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="paymentDate">Payment Date</Label>
+                  <Input
+                    id="paymentDate"
+                    name="paymentDate"
+                    type="date"
+                    value={paymentForm.paymentDate}
+                    onChange={handlePaymentInputChange}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="paymentMethod">Payment Method</Label>
+                <select
+                  id="paymentMethod"
+                  name="paymentMethod"
+                  value={paymentForm.paymentMethod}
+                  onChange={(e) => setPaymentForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                  className="w-full p-2.5 border border-gray-300 rounded-md bg-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="bank_transfer">Bank Transfer</option>
+                  <option value="mobile_money">Mobile Money</option>
+                  <option value="cash">Cash</option>
+                  <option value="cheque">Cheque</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="referenceNumber">Reference Number</Label>
+                <Input
+                  id="referenceNumber"
+                  name="referenceNumber"
+                  value={paymentForm.referenceNumber}
+                  onChange={handlePaymentInputChange}
+                  placeholder="e.g., TRX123456"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="paymentNotes">Payment Notes</Label>
+                <Textarea
+                  id="notes"
+                  name="notes"
+                  value={paymentForm.notes}
+                  onChange={handlePaymentInputChange}
+                  placeholder="Additional payment notes..."
+                  rows={2}
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
+            <Button variant="outline" onClick={() => setIsPaymentDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdatePayment}>
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Update Payment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Notes Dialog */}
+      <Dialog open={isNotesDialogOpen} onOpenChange={setIsNotesDialogOpen}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
+            <DialogTitle>Add Notes</DialogTitle>
+            <DialogDescription>
+              Record notes or reasoning for decisions
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="overflow-y-auto flex-1 p-6">
+            <div className="grid gap-4">
+              {selectedOrderForNotes && (
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <p className="text-sm font-medium text-gray-700">
+                    Order #{selectedOrderForNotes.id} - {selectedOrderForNotes.supplierName}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Status: {selectedOrderForNotes.goodsReceived ? 'Goods Received' : 'Ordered'}
+                  </p>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="orderNotes">Notes</Label>
+                <Textarea
+                  id="notes"
+                  name="notes"
+                  value={notesForm.notes}
+                  onChange={handleNotesInputChange}
+                  placeholder="Record notes about delays, quality issues, decisions..."
+                  rows={5}
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
+            <Button variant="outline" onClick={() => setIsNotesDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateNotes}>
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Save Notes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Order</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete order #{selectedOrder?.id}? 
+              This action cannot be undone and will remove:
+              <ul className="list-disc pl-5 mt-2 space-y-1">
+                <li>Order record</li>
+                <li>Payment information</li>
+                <li>Delivery records</li>
+                <li>Associated notes</li>
+              </ul>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteOrder}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete Order
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </DashboardLayout>
+  );
+}
