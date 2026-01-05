@@ -33,13 +33,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { 
   Users, 
   Search, 
@@ -47,7 +40,9 @@ import {
   MapPin, 
   Edit, 
   Trash2,
-  CheckCircle
+  CheckCircle,
+  Calendar,
+  Sprout
 } from 'lucide-react';
 import { apiService } from '@/api/services';
 import { toast } from 'sonner';
@@ -70,6 +65,8 @@ export default function Farmers() {
     variety: '',
     acreage: '',
     estimatedYield: '',
+    plantingDate: '',
+    harvestEstimation: '',
     contact: ''
   });
 
@@ -110,7 +107,8 @@ export default function Farmers() {
   };
 
   // Handle select changes
-  const handleSelectChange = (name, value) => {
+  const handleSelectChange = (e) => {
+    const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -129,9 +127,29 @@ export default function Farmers() {
       variety: '',
       acreage: '',
       estimatedYield: '',
+      plantingDate: '',
+      harvestEstimation: '',
       contact: ''
     });
     setSelectedFarmer(null);
+  };
+
+  // Calculate harvest window from planting date
+  const calculateHarvestWindow = (plantingDate) => {
+    if (!plantingDate) return { start: null, end: null };
+    
+    const plantDate = new Date(plantingDate);
+    const harvestStart = new Date(plantDate);
+    const harvestEnd = new Date(plantDate);
+    
+    // Assuming 90-120 days for most crops (adjust as needed)
+    harvestStart.setDate(plantDate.getDate() + 90);
+    harvestEnd.setDate(plantDate.getDate() + 120);
+    
+    return {
+      start: harvestStart.toISOString(),
+      end: harvestEnd.toISOString()
+    };
   };
 
   // Add new farmer
@@ -147,6 +165,14 @@ export default function Farmers() {
         return;
       }
 
+      // Calculate harvest window if planting date is provided
+      const harvestWindow = formData.plantingDate 
+        ? calculateHarvestWindow(formData.plantingDate)
+        : { 
+            start: new Date().toISOString(), 
+            end: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString() 
+          };
+
       const newFarmer = {
         name: formData.name.trim(),
         gender: formData.gender,
@@ -157,9 +183,11 @@ export default function Farmers() {
         variety: formData.variety.trim(),
         acreage: parseFloat(formData.acreage) || 0,
         estimatedYield: parseFloat(formData.estimatedYield) || 0,
+        plantingDate: formData.plantingDate || null,
+        harvestEstimation: formData.harvestEstimation.trim(),
         contact: formData.contact.trim(),
-        harvestWindowStart: new Date().toISOString(),
-        harvestWindowEnd: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+        harvestWindowStart: harvestWindow.start,
+        harvestWindowEnd: harvestWindow.end,
         status: 'active'
       };
 
@@ -203,9 +231,18 @@ export default function Farmers() {
         variety: formData.variety.trim(),
         acreage: parseFloat(formData.acreage) || 0,
         estimatedYield: parseFloat(formData.estimatedYield) || 0,
+        plantingDate: formData.plantingDate || null,
+        harvestEstimation: formData.harvestEstimation.trim(),
         contact: formData.contact.trim(),
         id: selectedFarmer.id
       };
+
+      // Update harvest window if planting date changed
+      if (formData.plantingDate && formData.plantingDate !== selectedFarmer.plantingDate) {
+        const harvestWindow = calculateHarvestWindow(formData.plantingDate);
+        updatedFarmer.harvestWindowStart = harvestWindow.start;
+        updatedFarmer.harvestWindowEnd = harvestWindow.end;
+      }
 
       await apiService.farmers.update(selectedFarmer.id, updatedFarmer);
       toast.success('Farmer updated successfully');
@@ -232,6 +269,16 @@ export default function Farmers() {
     }
   };
 
+  // Format date for display
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Not set';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
   // Open edit dialog
   const openEditDialog = (farmer) => {
     setSelectedFarmer(farmer);
@@ -245,6 +292,8 @@ export default function Farmers() {
       variety: farmer.variety || '',
       acreage: farmer.acreage?.toString() || '',
       estimatedYield: farmer.estimatedYield?.toString() || '',
+      plantingDate: farmer.plantingDate ? farmer.plantingDate.split('T')[0] : '',
+      harvestEstimation: farmer.harvestEstimation || '',
       contact: farmer.contact || ''
     });
     setIsEditDialogOpen(true);
@@ -328,16 +377,17 @@ export default function Farmers() {
                     Add Farmer
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-md max-h-[90vh] overflow-hidden flex flex-col">
-                  <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
+                <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
+                  <DialogHeader className="px-6 pt-6 pb-4 border-b">
                     <DialogTitle>Add New Farmer</DialogTitle>
                     <DialogDescription>
                       Enter the farmer's details below. Click save when you're done.
                     </DialogDescription>
                   </DialogHeader>
                   
-                  <div className="overflow-y-auto flex-1 p-6">
+                  <div className="px-6 py-4">
                     <div className="grid gap-4">
+                      {/* Full Name and Gender */}
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="name">Full Name *</Label>
@@ -351,39 +401,37 @@ export default function Farmers() {
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="gender">Gender</Label>
-                          <Select
+                          <select
+                            id="gender"
+                            name="gender"
                             value={formData.gender}
-                            onValueChange={(value) => handleSelectChange('gender', value)}
+                            onChange={handleSelectChange}
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                           >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select gender" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="male">Male</SelectItem>
-                              <SelectItem value="female">Female</SelectItem>
-                            </SelectContent>
-                          </Select>
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                          </select>
                         </div>
                       </div>
 
+                      {/* Age Group */}
                       <div className="space-y-2">
                         <Label htmlFor="ageGroup">Age Group</Label>
-                        <Select
+                        <select
+                          id="ageGroup"
+                          name="ageGroup"
                           value={formData.ageGroup}
-                          onValueChange={(value) => handleSelectChange('ageGroup', value)}
+                          onChange={handleSelectChange}
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select age group" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="18-30">18-30</SelectItem>
-                            <SelectItem value="31-45">31-45</SelectItem>
-                            <SelectItem value="46-60">46-60</SelectItem>
-                            <SelectItem value="60+">60+</SelectItem>
-                          </SelectContent>
-                        </Select>
+                          <option value="18-30">18-30</option>
+                          <option value="31-45">31-45</option>
+                          <option value="46-60">46-60</option>
+                          <option value="60+">60+</option>
+                        </select>
                       </div>
 
+                      {/* County and Ward */}
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="county">County *</Label>
@@ -407,6 +455,7 @@ export default function Farmers() {
                         </div>
                       </div>
 
+                      {/* Crop and Variety */}
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="crop">Crop Type</Label>
@@ -430,6 +479,7 @@ export default function Farmers() {
                         </div>
                       </div>
 
+                      {/* Acreage and Estimated Yield */}
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="acreage">Acreage (acres)</Label>
@@ -459,6 +509,31 @@ export default function Farmers() {
                         </div>
                       </div>
 
+                      {/* Planting Date and Harvest Estimation */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="plantingDate">Planting Date</Label>
+                          <Input
+                            id="plantingDate"
+                            name="plantingDate"
+                            type="date"
+                            value={formData.plantingDate}
+                            onChange={handleInputChange}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="harvestEstimation">Harvest Estimation</Label>
+                          <Input
+                            id="harvestEstimation"
+                            name="harvestEstimation"
+                            value={formData.harvestEstimation}
+                            onChange={handleInputChange}
+                            placeholder="e.g., Early April, Late May"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Contact */}
                       <div className="space-y-2">
                         <Label htmlFor="contact">Contact</Label>
                         <Input
@@ -472,7 +547,7 @@ export default function Farmers() {
                     </div>
                   </div>
 
-                  <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
+                  <DialogFooter className="px-6 py-4 border-t">
                     <Button variant="outline" onClick={() => {
                       setIsAddDialogOpen(false);
                       resetForm();
@@ -500,11 +575,13 @@ export default function Farmers() {
                   <TableHeader>
                     <TableRow className="bg-muted/50">
                       <TableHead>Farmer</TableHead>
-                      <TableHead>Demographics</TableHead>
+                      <TableHead>Gender/Age</TableHead>
                       <TableHead>Location</TableHead>
                       <TableHead>Crop</TableHead>
                       <TableHead className="text-center">Acreage</TableHead>
                       <TableHead className="text-center">Est. Yield</TableHead>
+                      <TableHead>Planting Date</TableHead>
+                      <TableHead>Harvest Est.</TableHead>
                       <TableHead>Harvest Window</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
@@ -522,11 +599,11 @@ export default function Farmers() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex gap-2">
-                            <Badge variant="outline" className="capitalize">
+                          <div className="flex flex-col gap-1">
+                            <Badge variant="outline" className="capitalize w-fit">
                               {farmer.gender}
                             </Badge>
-                            <Badge variant="secondary">{farmer.ageGroup}</Badge>
+                            <span className="text-sm">{farmer.ageGroup}</span>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -553,6 +630,16 @@ export default function Farmers() {
                         </TableCell>
                         <TableCell className="text-center font-medium">
                           {farmer.estimatedYield || 0} tons
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm">
+                            {formatDate(farmer.plantingDate)}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm">
+                            {farmer.harvestEstimation || 'Not specified'}
+                          </span>
                         </TableCell>
                         <TableCell>
                           {farmer.harvestWindowStart ? (
@@ -612,16 +699,17 @@ export default function Farmers() {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
+        <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b">
             <DialogTitle>Edit Farmer</DialogTitle>
             <DialogDescription>
               Update the farmer's details below.
             </DialogDescription>
           </DialogHeader>
           
-          <div className="overflow-y-auto flex-1 p-6">
+          <div className="px-6 py-4">
             <div className="grid gap-4">
+              {/* Full Name and Gender */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="edit-name">Full Name *</Label>
@@ -635,39 +723,37 @@ export default function Farmers() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-gender">Gender</Label>
-                  <Select
+                  <select
+                    id="edit-gender"
+                    name="gender"
                     value={formData.gender}
-                    onValueChange={(value) => handleSelectChange('gender', value)}
+                    onChange={handleSelectChange}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select gender" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="male">Male</SelectItem>
-                      <SelectItem value="female">Female</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                  </select>
                 </div>
               </div>
 
+              {/* Age Group */}
               <div className="space-y-2">
                 <Label htmlFor="edit-ageGroup">Age Group</Label>
-                <Select
+                <select
+                  id="edit-ageGroup"
+                  name="ageGroup"
                   value={formData.ageGroup}
-                  onValueChange={(value) => handleSelectChange('ageGroup', value)}
+                  onChange={handleSelectChange}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select age group" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="18-30">18-30</SelectItem>
-                    <SelectItem value="31-45">31-45</SelectItem>
-                    <SelectItem value="46-60">46-60</SelectItem>
-                    <SelectItem value="60+">60+</SelectItem>
-                  </SelectContent>
-                </Select>
+                  <option value="18-30">18-30</option>
+                  <option value="31-45">31-45</option>
+                  <option value="46-60">46-60</option>
+                  <option value="60+">60+</option>
+                </select>
               </div>
 
+              {/* County and Ward */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="edit-county">County *</Label>
@@ -691,6 +777,7 @@ export default function Farmers() {
                 </div>
               </div>
 
+              {/* Crop and Variety */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="edit-crop">Crop Type</Label>
@@ -714,6 +801,7 @@ export default function Farmers() {
                 </div>
               </div>
 
+              {/* Acreage and Estimated Yield */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="edit-acreage">Acreage (acres)</Label>
@@ -743,6 +831,31 @@ export default function Farmers() {
                 </div>
               </div>
 
+              {/* Planting Date and Harvest Estimation */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-plantingDate">Planting Date</Label>
+                  <Input
+                    id="edit-plantingDate"
+                    name="plantingDate"
+                    type="date"
+                    value={formData.plantingDate}
+                    onChange={handleInputChange}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-harvestEstimation">Harvest Estimation</Label>
+                  <Input
+                    id="edit-harvestEstimation"
+                    name="harvestEstimation"
+                    value={formData.harvestEstimation}
+                    onChange={handleInputChange}
+                    placeholder="e.g., Early April, Late May"
+                  />
+                </div>
+              </div>
+
+              {/* Contact */}
               <div className="space-y-2">
                 <Label htmlFor="edit-contact">Contact</Label>
                 <Input
@@ -756,7 +869,7 @@ export default function Farmers() {
             </div>
           </div>
 
-          <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
+          <DialogFooter className="px-6 py-4 border-t">
             <Button variant="outline" onClick={() => {
               setIsEditDialogOpen(false);
               resetForm();
