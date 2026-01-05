@@ -209,7 +209,7 @@ export default function Contracts() {
   const getStatusBadge = (status) => {
     const badges = {
       'active': <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Active</span>,
-      'completed': <span className="px-2 py-1 rounded-full text-xs bg-indigo-100 text-indigo-800 flex items-center gap-1"><TrendingUp className="h-3 w-3" /> Completed</span>,
+      'completed': <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 flex items-center gap-1"><TrendingUp className="h-3 w-3" /> Completed</span>,
       'terminated': <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Terminated</span>,
       'draft': <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800 flex items-center gap-1"><Clock className="h-3 w-3" /> Draft</span>,
     };
@@ -222,7 +222,7 @@ export default function Contracts() {
       <DashboardLayout title="Contracts" description="Manage supplier contracts and agreements">
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
-            <Loader2 className="h-12 w-12 animate-spin text-indigo-600 mx-auto" />
+            <Loader2 className="h-12 w-12 animate-spin text-[#217A2D] mx-auto" />
             <p className="mt-4 text-gray-500">Loading contracts...</p>
           </div>
         </div>
@@ -232,9 +232,9 @@ export default function Contracts() {
 
   return (
     <DashboardLayout title="Contracts" description="Manage supplier contracts and agreements">
-      {/* Summary Cards */}
+      {/* Summary Cards - Reverted to original */}
       <div className="grid gap-4 md:grid-cols-3 mb-6">
-        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-l-green-500">
+        <div className="bg-white rounded-lg shadow p-6">
           <div className="text-center">
             <div className="flex items-center justify-center mb-2">
               <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
@@ -243,10 +243,10 @@ export default function Contracts() {
             <p className="text-sm text-gray-500">Active Contracts</p>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-l-indigo-500">
+        <div className="bg-white rounded-lg shadow p-6">
           <div className="text-center">
             <div className="flex items-center justify-center mb-2">
-              <TrendingUp className="h-5 w-5 text-indigo-600 mr-2" />
+              <TrendingUp className="h-5 w-5 text-blue-600 mr-2" />
               <p className="text-2xl font-bold">
                 {contracts.reduce((sum, contract) => sum + (contract.contractedQuantity || 0), 0)}
               </p>
@@ -254,7 +254,7 @@ export default function Contracts() {
             <p className="text-sm text-gray-500">Total Contracted Qty (tons)</p>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow p-6 border-l-4 border-l-amber-500">
+        <div className="bg-white rounded-lg shadow p-6">
           <div className="text-center">
             <div className="flex items-center justify-center mb-2">
               <FileCheck className="h-5 w-5 text-amber-600 mr-2" />
@@ -275,7 +275,7 @@ export default function Contracts() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h2 className="text-xl font-semibold flex items-center gap-2">
-                <FileText className="h-5 w-5 text-indigo-600" />
+                <FileText className="h-5 w-5 text-[#217A2D]" />
                 Contract Management
               </h2>
               <p className="text-gray-500">
@@ -289,7 +289,7 @@ export default function Contracts() {
                 setIsDialogOpen(true);
               }}
               disabled={submitting}
-              className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium flex items-center gap-2 transition-all duration-200 shadow-md hover:shadow-lg"
+              className="bg-[#217A2D] hover:bg-[#1a5e23] text-white px-4 py-2.5 rounded-md text-sm font-medium flex items-center gap-2 transition-colors"
             >
               {submitting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -304,8 +304,8 @@ export default function Contracts() {
         <div className="p-6">
           {contracts.length === 0 ? (
             <div className="text-center py-12">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-50 mb-4">
-                <FileText className="h-8 w-8 text-indigo-600" />
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
+                <FileText className="h-8 w-8 text-gray-400" />
               </div>
               <h3 className="text-lg font-semibold text-gray-700 mb-2">
                 No Contracts Yet
@@ -315,7 +315,7 @@ export default function Contracts() {
               </p>
               <button 
                 onClick={() => setIsDialogOpen(true)}
-                className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 mx-auto transition-all duration-200 shadow-md hover:shadow-lg"
+                className="bg-[#217A2D] hover:bg-[#1a5e23] text-white px-6 py-3 rounded-md flex items-center gap-2 mx-auto transition-colors"
               >
                 <Plus className="h-4 w-4" />
                 Create First Contract
@@ -337,19 +337,17 @@ export default function Contracts() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {contracts.map((contract) => (
-                    <tr key={contract.id} className="hover:bg-gray-50 transition-colors">
+                    <tr key={contract.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="font-medium text-gray-900">{contract.supplierName}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-3 py-1 text-xs rounded-full font-medium ${contract.supplierType === 'farmer' ? 'bg-green-100 text-green-800' : 'bg-indigo-100 text-indigo-800'}`}>
+                        <span className={`px-2 py-1 text-xs rounded-full ${contract.supplierType === 'farmer' ? 'bg-green-100 text-green-800' : 'bg-purple-100 text-purple-800'}`}>
                           {contract.supplierType}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center font-semibold">
-                        <span className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-lg">
-                          {contract.contractedQuantity}
-                        </span>
+                      <td className="px-6 py-4 whitespace-nowrap text-center font-medium">
+                        {contract.contractedQuantity}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm">
@@ -364,7 +362,7 @@ export default function Contracts() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm max-w-xs flex items-start gap-1">
-                          <DollarSign className="h-3 w-3 mt-0.5 text-indigo-500" />
+                          <DollarSign className="h-3 w-3 mt-0.5 text-gray-400" />
                           <span className="line-clamp-2">{contract.pricingTerms}</span>
                         </div>
                       </td>
@@ -375,15 +373,13 @@ export default function Contracts() {
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => handleView(contract)}
-                            className="text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 p-1.5 rounded-md transition-colors"
-                            title="View details"
+                            className="text-blue-600 hover:text-blue-900"
                           >
                             <Eye className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => handleEdit(contract)}
-                            className="text-gray-600 hover:text-gray-900 hover:bg-gray-50 p-1.5 rounded-md transition-colors"
-                            title="Edit contract"
+                            className="text-gray-600 hover:text-gray-900"
                           >
                             <Edit className="h-4 w-4" />
                           </button>
@@ -392,8 +388,7 @@ export default function Contracts() {
                               setContractToDelete({ id: contract.id, supplierName: contract.supplierName });
                               setIsDeleteDialogOpen(true);
                             }}
-                            className="text-red-600 hover:text-red-900 hover:bg-red-50 p-1.5 rounded-md transition-colors"
-                            title="Delete contract"
+                            className="text-red-600 hover:text-red-900"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -413,9 +408,8 @@ export default function Contracts() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-indigo-600" />
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">
                   {editingContract ? 'Edit Contract' : 'Create New Contract'}
                 </h3>
                 <button
@@ -423,24 +417,24 @@ export default function Contracts() {
                     setIsDialogOpen(false);
                     resetForm();
                   }}
-                  className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-md transition-colors"
+                  className="text-gray-400 hover:text-gray-600"
                 >
                   ✕
                 </button>
               </div>
 
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 {/* Supplier Name and Type */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
                       Supplier Name *
                     </label>
                     <input
                       type="text"
                       {...form.register('supplierName')}
                       placeholder="Mary Wanjiku"
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#217A2D] focus:border-[#217A2D]"
                     />
                     {form.formState.errors.supplierName && (
                       <p className="text-red-500 text-xs mt-1">{form.formState.errors.supplierName.message}</p>
@@ -448,12 +442,12 @@ export default function Contracts() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
                       Supplier Type *
                     </label>
                     <select
                       {...form.register('supplierType')}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-white"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#217A2D] focus:border-[#217A2D]"
                     >
                       <option value="farmer">Farmer</option>
                       <option value="aggregator">Aggregator</option>
@@ -464,70 +458,70 @@ export default function Contracts() {
                 {/* Quantity and Dates */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
                       Quantity (tons) *
                     </label>
                     <input
                       type="number"
                       {...form.register('contractedQuantity')}
                       placeholder="20"
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#217A2D] focus:border-[#217A2D]"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
                       Start Date *
                     </label>
                     <input
                       type="date"
                       {...form.register('startDate')}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#217A2D] focus:border-[#217A2D]"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
                       End Date *
                     </label>
                     <input
                       type="date"
                       {...form.register('endDate')}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#217A2D] focus:border-[#217A2D]"
                     />
                   </div>
                 </div>
 
                 {/* Pricing Terms */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Pricing Terms *
                   </label>
                   <input
                     type="text"
                     {...form.register('pricingTerms')}
                     placeholder="KES 26/kg, weekly payments"
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#217A2D] focus:border-[#217A2D]"
                   />
                 </div>
 
                 {/* Payment Terms */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Payment Terms
                   </label>
                   <input
                     type="text"
                     {...form.register('paymentTerms')}
                     placeholder="Net 30, bank transfer"
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#217A2D] focus:border-[#217A2D]"
                   />
                 </div>
 
                 {/* Fulfillment and Status */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
                       Fulfillment %
                     </label>
                     <input
@@ -536,17 +530,17 @@ export default function Contracts() {
                       max="100"
                       {...form.register('fulfillmentPercentage')}
                       placeholder="0"
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#217A2D] focus:border-[#217A2D]"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
                       Status
                     </label>
                     <select
                       {...form.register('status')}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-white"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#217A2D] focus:border-[#217A2D]"
                     >
                       <option value="draft">Draft</option>
                       <option value="active">Active</option>
@@ -558,11 +552,11 @@ export default function Contracts() {
 
                 {/* Contract Image Upload */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Contract Document/Image
                   </label>
-                  <div className="mt-2 flex items-center gap-4">
-                    <label className="cursor-pointer bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-dashed border-indigo-200 py-3 px-4 rounded-lg text-sm leading-4 font-medium text-indigo-700 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all">
+                  <div className="mt-1 flex items-center">
+                    <label className="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm leading-4 font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#217A2D]">
                       <Upload className="h-4 w-4 inline mr-2" />
                       Choose File
                       <input
@@ -573,16 +567,15 @@ export default function Contracts() {
                       />
                     </label>
                     {selectedFile && (
-                      <span className="text-sm text-gray-600">{selectedFile.name}</span>
+                      <span className="ml-3 text-sm text-gray-500">{selectedFile.name}</span>
                     )}
                   </div>
                   {previewImage && (
-                    <div className="mt-3">
-                      <p className="text-xs text-gray-500 mb-1">Preview:</p>
+                    <div className="mt-2">
                       <img
                         src={previewImage}
                         alt="Contract preview"
-                        className="h-40 w-auto object-cover rounded-lg border border-gray-200"
+                        className="h-32 w-auto object-cover rounded border"
                       />
                     </div>
                   )}
@@ -590,19 +583,19 @@ export default function Contracts() {
 
                 {/* Notes */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Notes
                   </label>
                   <textarea
                     {...form.register('notes')}
                     placeholder="Additional notes or terms..."
                     rows="3"
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#217A2D] focus:border-[#217A2D]"
                   />
                 </div>
 
                 {/* Form Actions */}
-                <div className="flex justify-end gap-3 pt-6 border-t">
+                <div className="flex justify-end gap-3 pt-4 border-t">
                   <button
                     type="button"
                     onClick={() => {
@@ -610,14 +603,14 @@ export default function Contracts() {
                       resetForm();
                     }}
                     disabled={submitting}
-                    className="px-5 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all"
+                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg text-sm font-medium hover:from-indigo-700 hover:to-purple-700 flex items-center gap-2 transition-all shadow-md hover:shadow-lg"
+                    className="px-4 py-2 bg-[#217A2D] text-white rounded-md text-sm font-medium hover:bg-[#1a5e23] flex items-center gap-2"
                   >
                     {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
                     {editingContract ? 'Update Contract' : 'Create Contract'}
@@ -634,28 +627,28 @@ export default function Contracts() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
             <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold flex items-center gap-2">
-                  <FileCheck className="h-5 w-5 text-indigo-600" />
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <FileCheck className="h-5 w-5 text-[#217A2D]" />
                   Contract Details
                 </h3>
                 <button
                   onClick={() => setIsViewDialogOpen(false)}
-                  className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-md transition-colors"
+                  className="text-gray-400 hover:text-gray-600"
                 >
                   ✕
                 </button>
               </div>
 
-              <div className="space-y-5">
+              <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-gray-500 mb-1">Supplier</p>
-                    <p className="font-semibold text-gray-900">{viewingContract.supplierName}</p>
+                    <p className="text-sm text-gray-500">Supplier</p>
+                    <p className="font-semibold">{viewingContract.supplierName}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500 mb-1">Type</p>
-                    <span className={`px-3 py-1 text-xs rounded-full font-medium ${viewingContract.supplierType === 'farmer' ? 'bg-green-100 text-green-800' : 'bg-indigo-100 text-indigo-800'}`}>
+                    <p className="text-sm text-gray-500">Type</p>
+                    <span className={`px-2 py-1 text-xs rounded-full ${viewingContract.supplierType === 'farmer' ? 'bg-green-100 text-green-800' : 'bg-purple-100 text-purple-800'}`}>
                       {viewingContract.supplierType}
                     </span>
                   </div>
@@ -663,48 +656,48 @@ export default function Contracts() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-gray-500 mb-1">Quantity</p>
-                    <p className="font-semibold text-gray-900">{viewingContract.contractedQuantity} tons</p>
+                    <p className="text-sm text-gray-500">Quantity</p>
+                    <p className="font-semibold">{viewingContract.contractedQuantity} tons</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500 mb-1">Status</p>
+                    <p className="text-sm text-gray-500">Status</p>
                     {getStatusBadge(viewingContract.status)}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-gray-500 mb-1">Start Date</p>
-                    <p className="text-gray-900">{formatDate(viewingContract.startDate, 'PPP')}</p>
+                    <p className="text-sm text-gray-500">Start Date</p>
+                    <p>{formatDate(viewingContract.startDate, 'PPP')}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500 mb-1">End Date</p>
-                    <p className="text-gray-900">{formatDate(viewingContract.endDate, 'PPP')}</p>
+                    <p className="text-sm text-gray-500">End Date</p>
+                    <p>{formatDate(viewingContract.endDate, 'PPP')}</p>
                   </div>
                 </div>
 
                 <div>
-                  <p className="text-sm text-gray-500 mb-1">Pricing Terms</p>
-                  <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{viewingContract.pricingTerms}</p>
+                  <p className="text-sm text-gray-500">Pricing Terms</p>
+                  <p>{viewingContract.pricingTerms}</p>
                 </div>
 
                 {viewingContract.paymentTerms && (
                   <div>
-                    <p className="text-sm text-gray-500 mb-1">Payment Terms</p>
-                    <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{viewingContract.paymentTerms}</p>
+                    <p className="text-sm text-gray-500">Payment Terms</p>
+                    <p>{viewingContract.paymentTerms}</p>
                   </div>
                 )}
 
                 <div>
-                  <p className="text-sm text-gray-500 mb-1">Fulfillment Progress</p>
+                  <p className="text-sm text-gray-500">Fulfillment Progress</p>
                   <div className="mt-2">
-                    <div className="flex justify-between text-sm mb-2">
-                      <span className="text-gray-600">Progress</span>
-                      <span className="font-semibold text-indigo-700">{viewingContract.fulfillmentPercentage}%</span>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span>Progress</span>
+                      <span className="font-medium">{viewingContract.fulfillmentPercentage}%</span>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div className="w-full bg-gray-200 rounded-full h-2">
                       <div 
-                        className="bg-gradient-to-r from-indigo-500 to-purple-500 h-2.5 rounded-full transition-all duration-500" 
+                        className="bg-[#217A2D] h-2 rounded-full" 
                         style={{ width: `${viewingContract.fulfillmentPercentage}%` }}
                       />
                     </div>
@@ -713,27 +706,27 @@ export default function Contracts() {
 
                 {viewingContract.contractImageUrl && (
                   <div>
-                    <p className="text-sm text-gray-500 mb-1">Contract Document</p>
+                    <p className="text-sm text-gray-500">Contract Document</p>
                     <img 
                       src={viewingContract.contractImageUrl} 
                       alt="Contract document" 
-                      className="mt-2 h-40 w-auto rounded-lg border border-gray-200 object-cover"
+                      className="mt-2 h-32 w-auto rounded border"
                     />
                   </div>
                 )}
 
                 {viewingContract.notes && (
                   <div>
-                    <p className="text-sm text-gray-500 mb-1">Notes</p>
-                    <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{viewingContract.notes}</p>
+                    <p className="text-sm text-gray-500">Notes</p>
+                    <p className="text-gray-600">{viewingContract.notes}</p>
                   </div>
                 )}
               </div>
 
-              <div className="flex justify-end gap-3 pt-6 border-t mt-6">
+              <div className="flex justify-end gap-3 pt-4 border-t mt-4">
                 <button
                   onClick={() => setIsViewDialogOpen(false)}
-                  className="px-5 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all"
+                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                 >
                   Close
                 </button>
@@ -742,7 +735,7 @@ export default function Contracts() {
                     setIsViewDialogOpen(false);
                     handleEdit(viewingContract);
                   }}
-                  className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg text-sm font-medium hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md hover:shadow-lg"
+                  className="px-4 py-2 bg-[#217A2D] text-white rounded-md text-sm font-medium hover:bg-[#1a5e23]"
                 >
                   Edit Contract
                 </button>
@@ -757,26 +750,23 @@ export default function Contracts() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
             <div className="p-6">
-              <div className="flex items-center justify-center w-12 h-12 bg-red-100 rounded-full mx-auto mb-4">
-                <AlertTriangle className="h-6 w-6 text-red-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 text-center mb-2">Delete Contract</h3>
-              <p className="text-gray-500 text-center mb-6">
-                Are you sure you want to delete the contract with <span className="font-semibold text-gray-900">"{contractToDelete?.supplierName}"</span>? 
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Contract</h3>
+              <p className="text-gray-500 mb-6">
+                Are you sure you want to delete the contract with "{contractToDelete?.supplierName}"? 
                 This action cannot be undone.
               </p>
-              <div className="flex justify-center gap-3">
+              <div className="flex justify-end gap-3">
                 <button
                   onClick={() => setIsDeleteDialogOpen(false)}
-                  className="px-5 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all"
+                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleDeleteConfirm}
-                  className="px-5 py-2.5 bg-gradient-to-r from-red-600 to-pink-600 text-white rounded-lg text-sm font-medium hover:from-red-700 hover:to-pink-700 transition-all shadow-md hover:shadow-lg"
+                  className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700"
                 >
-                  Delete Contract
+                  Delete
                 </button>
               </div>
             </div>
