@@ -74,7 +74,8 @@ import {
   MessageSquare,
   Send,
   User,
-  Users
+  Users,
+  Copy
 } from 'lucide-react';
 import { apiService } from '@/api/services';
 import { toast } from 'sonner';
@@ -103,11 +104,10 @@ export default function Procurement() {
   
   // Form states
   const [step1Form, setStep1Form] = useState({
-    // Step 1: Send Order
-    supplierType: 'farmer', // 'farmer' or 'aggregator'
+    supplierType: 'farmer',
     farmerId: '',
     aggregatorId: '',
-    isContracted: 'yes', // 'yes' or 'no'
+    isContracted: 'yes',
     supplierName: '',
     contact: '',
     cropName: '',
@@ -120,7 +120,6 @@ export default function Procurement() {
   });
 
   const [step2Form, setStep2Form] = useState({
-    // Step 2: Goods Receipt
     orderId: '',
     quantityDelivered: '',
     quantityAccepted: '',
@@ -159,8 +158,6 @@ export default function Procurement() {
       setFarmers(farmersData || []);
       setAggregators(aggregatorsData?.data || aggregatorsData || []);
       
-      // Get supply allocations from backend or localStorage
-      // In a real app, this would come from your backend
       const allocations = await apiService.supply.getAllocations?.() || 
                          JSON.parse(localStorage.getItem('supplyAllocations')) || [];
       setSupplyAllocations(allocations);
@@ -241,7 +238,6 @@ export default function Procurement() {
     const { name, value } = e.target;
     setStep1Form(prev => ({ ...prev, [name]: value }));
     
-    // Auto-fill delivery date if farmer is selected and has allocation
     if (name === 'farmerId' && value) {
       const allocation = supplyAllocations.find(a => a.farmerId === parseInt(value));
       if (allocation) {
@@ -258,7 +254,6 @@ export default function Procurement() {
   const handleStep1SelectChange = (name, value) => {
     setStep1Form(prev => ({ ...prev, [name]: value }));
     
-    // When supplier type changes, reset related fields
     if (name === 'supplierType') {
       setStep1Form(prev => ({
         ...prev,
@@ -270,7 +265,6 @@ export default function Procurement() {
       }));
     }
     
-    // When farmer selected, auto-fill name, contact, and crop
     if (name === 'farmerId' && value) {
       const farmer = farmers.find(f => f.id === parseInt(value));
       if (farmer) {
@@ -278,15 +272,13 @@ export default function Procurement() {
           ...prev,
           supplierName: farmer.name,
           contact: farmer.contact || farmer.phone || '',
-          isContracted: 'yes', // Farmers from our system are always contracted
+          isContracted: 'yes',
           cropName: farmer.crop || '',
-          // Get contract number if exists
           ...(farmer.contractNumber && { lpoNumber: `CONTRACT-${farmer.contractNumber}` })
         }));
       }
     }
     
-    // When aggregator selected, auto-fill name and contact
     if (name === 'aggregatorId' && value) {
       const aggregator = aggregators.find(a => a.id === parseInt(value));
       if (aggregator) {
@@ -306,7 +298,6 @@ export default function Procurement() {
     setStep2Form(prev => {
       const updated = { ...prev, [name]: value };
       
-      // Auto-calculate rejected quantity
       if (name === 'quantityDelivered' || name === 'quantityAccepted') {
         const delivered = parseFloat(updated.quantityDelivered) || 0;
         const accepted = parseFloat(updated.quantityAccepted) || 0;
@@ -369,13 +360,11 @@ export default function Procurement() {
   // Step 1: Create Procurement Order
   const handleCreateOrder = async () => {
     try {
-      // Validate required fields
       if (!step1Form.supplierName || !step1Form.quantityOrdered || !step1Form.deliveryDate) {
         toast.error('Please fill all required fields');
         return;
       }
 
-      // Generate LPO number if not provided
       const lpoNumber = step1Form.lpoNumber || `LPO-${new Date().getFullYear()}-${String(orders.length + 1).padStart(3, '0')}`;
 
       const newOrder = {
@@ -395,7 +384,6 @@ export default function Procurement() {
         updatedAt: new Date().toISOString()
       };
 
-      // If farmer is selected, add farmer details
       if (step1Form.supplierType === 'farmer' && step1Form.farmerId) {
         const farmer = farmers.find(f => f.id === parseInt(step1Form.farmerId));
         if (farmer) {
@@ -405,7 +393,6 @@ export default function Procurement() {
         }
       }
 
-      // If aggregator is selected, add aggregator details
       if (step1Form.supplierType === 'aggregator' && step1Form.aggregatorId) {
         newOrder.aggregatorId = parseInt(step1Form.aggregatorId);
       }
@@ -423,24 +410,46 @@ export default function Procurement() {
 
   // Action buttons for sending order
   const handleSendOrder = (order, method) => {
-    const message = `Hello ${order.supplierName},\n\nYour procurement order has been created.\nOrder #${order.id}\nQuantity: ${order.quantityOrdered} tons\nDelivery Date: ${order.deliveryDate}\nLPO: ${order.lpoNumber}\n\nPlease confirm receipt.`;
+    const message = `Hello ${order.supplierName},\n\nYour procurement order has been created:\n\n📋 **Order Details**\n• Order #${order.id}\n• Crop: ${order.cropName}\n• Quantity: ${order.quantityOrdered} tons\n• Delivery Date: ${new Date(order.deliveryDate).toLocaleDateString()}\n• LPO: ${order.lpoNumber}\n\n✅ **Please confirm receipt**\n• Acknowledge receipt of this order\n• Confirm delivery timeline\n• Contact us for any questions\n\nBest regards,\nProcurement Team`;
     
     switch (method) {
       case 'email':
-        window.open(`mailto:${order.contact}?subject=Procurement Order #${order.id}&body=${encodeURIComponent(message)}`);
-        toast.success('Email opened with order details');
+        if (order.contact && order.contact.includes('@')) {
+          window.open(`mailto:${order.contact}?subject=Procurement Order #${order.id}&body=${encodeURIComponent(message)}`);
+          toast.success('Email opened with order details');
+        } else {
+          toast.error('Supplier email not available');
+        }
         break;
       case 'whatsapp':
-        window.open(`https://wa.me/${order.contact.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`);
-        toast.success('Opening WhatsApp...');
+        if (order.contact) {
+          const phoneNumber = order.contact.replace(/\D/g, '');
+          if (phoneNumber.length >= 10) {
+            window.open(`https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`);
+            toast.success('Opening WhatsApp...');
+          } else {
+            toast.error('Invalid phone number');
+          }
+        } else {
+          toast.error('Supplier phone number not available');
+        }
         break;
       case 'call':
-        window.open(`tel:${order.contact.replace(/\D/g, '')}`);
-        toast.success('Initiating call...');
+        if (order.contact) {
+          const phoneNumber = order.contact.replace(/\D/g, '');
+          if (phoneNumber.length >= 10) {
+            window.open(`tel:${phoneNumber}`);
+            toast.success('Initiating call...');
+          } else {
+            toast.error('Invalid phone number');
+          }
+        } else {
+          toast.error('Supplier phone number not available');
+        }
         break;
       default:
-        toast.info('Order details copied to clipboard');
         navigator.clipboard.writeText(message);
+        toast.success('Order details copied to clipboard');
     }
   };
 
@@ -462,7 +471,6 @@ export default function Procurement() {
       const quantityAccepted = parseFloat(step2Form.quantityAccepted) || 0;
       const quantityRejected = parseFloat(step2Form.quantityRejected) || 0;
 
-      // Update order with goods receipt details
       const updatedOrder = {
         ...order,
         quantityDelivered,
@@ -555,6 +563,33 @@ export default function Procurement() {
     } catch (error) {
       console.error('Error deleting order:', error);
       toast.error('Failed to delete order');
+    }
+  };
+
+  // Send Bulk Messages
+  const handleSendBulkMessages = (method) => {
+    const pendingOrders = orders.filter(order => !order.goodsReceived);
+    if (pendingOrders.length === 0) {
+      toast.error('No pending orders to send');
+      return;
+    }
+
+    if (method === 'whatsapp') {
+      const ordersSummary = pendingOrders.map(order => 
+        `• Order #${order.id}: ${order.quantityOrdered}t of ${order.cropName} (Due: ${new Date(order.deliveryDate).toLocaleDateString()})`
+      ).join('\n');
+      
+      const message = `📋 **Bulk Order Notification**\n\nPending Orders:\n${ordersSummary}\n\nPlease check your individual orders for details.\n\nBest regards,\nProcurement Team`;
+      
+      navigator.clipboard.writeText(message);
+      toast.success(`Bulk WhatsApp message copied for ${pendingOrders.length} orders`);
+    } else if (method === 'email') {
+      const subject = `Procurement Orders Summary - ${new Date().toLocaleDateString()}`;
+      const body = `Dear Suppliers,\n\nPlease find your pending procurement orders:\n\n${pendingOrders.map(order => 
+        `• Order #${order.id}: ${order.quantityOrdered}t of ${order.cropName} (Due: ${new Date(order.deliveryDate).toLocaleDateString()})`
+      ).join('\n')}\n\nPlease check your individual orders for complete details.\n\nBest regards,\nProcurement Team`;
+      
+      window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
     }
   };
 
@@ -814,7 +849,7 @@ export default function Procurement() {
                           </Select>
                         </div>
 
-                        {/* Farmer Selection - Only show farmers with scheduled allocations */}
+                        {/* Farmer Selection */}
                         {step1Form.supplierType === 'farmer' && (
                           <>
                             <div className="space-y-2">
@@ -848,7 +883,6 @@ export default function Procurement() {
                               </Select>
                             </div>
                             
-                            {/* Show available supply allocations for selected farmer */}
                             {step1Form.farmerId && (
                               <div className="p-3 bg-blue-50 rounded-lg">
                                 <p className="text-sm font-medium text-blue-700 mb-2">
@@ -1074,97 +1108,148 @@ export default function Procurement() {
                     No orders awaiting goods receipt
                   </div>
                 ) : (
-                  <div className="rounded-lg border overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-muted/50">
-                          <TableHead>Order Date</TableHead>
-                          <TableHead>Supplier</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead>Crop</TableHead>
-                          <TableHead>Quantity</TableHead>
-                          <TableHead>Delivery Date</TableHead>
-                          <TableHead>LPO</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {orders
-                          .filter(order => !order.goodsReceived)
-                          .map(order => (
-                            <TableRow key={order.id}>
-                              <TableCell>
-                                {new Date(order.orderDate).toLocaleDateString()}
-                              </TableCell>
-                              <TableCell>
-                                <div className="font-medium">{order.supplierName}</div>
-                                <div className="text-xs text-muted-foreground">
-                                  {order.contact}
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant={order.supplierType === 'farmer' ? 'farmer' : 'outline'}>
-                                  {order.supplierType}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>{order.cropName || '-'}</TableCell>
-                              <TableCell>{order.quantityOrdered}t</TableCell>
-                              <TableCell>
-                                {new Date(order.deliveryDate).toLocaleDateString()}
-                              </TableCell>
-                              <TableCell>
-                                {order.lpoNumber || '-'}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <div className="flex justify-end gap-2">
-                                  <div className="flex gap-1">
+                  <div className="space-y-4">
+                    {/* Quick Send Actions */}
+                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div>
+                          <h4 className="font-medium text-blue-800">Quick Send Actions</h4>
+                          <p className="text-sm text-blue-600">
+                            Send order notifications to all suppliers awaiting confirmation
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleSendBulkMessages('whatsapp')}
+                            className="gap-2 hover:bg-green-50"
+                          >
+                            <MessageSquare className="h-4 w-4 text-green-600" />
+                            Bulk WhatsApp
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleSendBulkMessages('email')}
+                            className="gap-2 hover:bg-blue-50"
+                          >
+                            <Mail className="h-4 w-4 text-blue-600" />
+                            Bulk Email
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Individual Orders Table */}
+                    <div className="rounded-lg border overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/50">
+                            <TableHead>Order Date</TableHead>
+                            <TableHead>Supplier</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Crop</TableHead>
+                            <TableHead>Quantity</TableHead>
+                            <TableHead>Delivery Date</TableHead>
+                            <TableHead>LPO</TableHead>
+                            <TableHead className="text-right">Send Order</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {orders
+                            .filter(order => !order.goodsReceived)
+                            .map(order => (
+                              <TableRow key={order.id}>
+                                <TableCell>
+                                  {new Date(order.orderDate).toLocaleDateString()}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="font-medium">{order.supplierName}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {order.contact}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant={order.supplierType === 'farmer' ? 'farmer' : 'outline'}>
+                                    {order.supplierType}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>{order.cropName || '-'}</TableCell>
+                                <TableCell>{order.quantityOrdered}t</TableCell>
+                                <TableCell>
+                                  {new Date(order.deliveryDate).toLocaleDateString()}
+                                </TableCell>
+                                <TableCell>
+                                  {order.lpoNumber || '-'}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <div className="flex justify-end gap-1">
                                     <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleSendOrder(order, 'email')}
-                                      title="Send via Email"
-                                      className="h-8 w-8 p-0"
-                                      disabled={!order.contact || !order.contact.includes('@')}
-                                    >
-                                      <Mail className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      variant="outline"
+                                      variant="ghost"
                                       size="sm"
                                       onClick={() => handleSendOrder(order, 'whatsapp')}
                                       title="Send via WhatsApp"
-                                      className="h-8 w-8 p-0"
+                                      className="h-8 w-8 p-0 hover:bg-green-50"
                                       disabled={!order.contact}
                                     >
-                                      <MessageSquare className="h-4 w-4" />
+                                      <MessageSquare className="h-4 w-4 text-green-600" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleSendOrder(order, 'email')}
+                                      title="Send via Email"
+                                      className="h-8 w-8 p-0 hover:bg-blue-50"
+                                      disabled={!order.contact || !order.contact.includes('@')}
+                                    >
+                                      <Mail className="h-4 w-4 text-blue-600" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleSendOrder(order, 'call')}
+                                      title="Call Supplier"
+                                      className="h-8 w-8 p-0 hover:bg-purple-50"
+                                      disabled={!order.contact}
+                                    >
+                                      <Phone className="h-4 w-4 text-purple-600" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <div className="flex justify-end gap-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        const message = `Hello ${order.supplierName},\n\nYour procurement order has been created:\n\n📋 **Order Details**\n• Order #${order.id}\n• Crop: ${order.cropName}\n• Quantity: ${order.quantityOrdered} tons\n• Delivery Date: ${new Date(order.deliveryDate).toLocaleDateString()}\n• LPO: ${order.lpoNumber}\n\n✅ **Please confirm receipt**\n\nBest regards,\nProcurement Team`;
+                                        navigator.clipboard.writeText(message);
+                                        toast.success('Order details copied to clipboard');
+                                      }}
+                                      className="h-8"
+                                    >
+                                      <Copy className="h-4 w-4 mr-2" />
+                                      Copy Details
                                     </Button>
                                     <Button
                                       variant="outline"
                                       size="sm"
-                                      onClick={() => handleSendOrder(order, 'call')}
-                                      title="Call Supplier"
-                                      className="h-8 w-8 p-0"
-                                      disabled={!order.contact}
+                                      onClick={() => openStep2Dialog(order)}
+                                      className="ml-2"
                                     >
-                                      <Phone className="h-4 w-4" />
+                                      <ClipboardCheck className="h-4 w-4 mr-2" />
+                                      Record Receipt
                                     </Button>
                                   </div>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => openStep2Dialog(order)}
-                                    className="ml-2"
-                                  >
-                                    <ClipboardCheck className="h-4 w-4 mr-2" />
-                                    Record Receipt
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        }
-                      </TableBody>
-                    </Table>
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          }
+                        </TableBody>
+                      </Table>
+                    </div>
                   </div>
                 )}
               </div>
