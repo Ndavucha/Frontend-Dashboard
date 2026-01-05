@@ -7,13 +7,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   Table,
   TableBody,
   TableCell,
@@ -118,6 +111,57 @@ export default function SupplyPlanning() {
     fetchData();
   }, []);
 
+  // Add test farmers if none exist
+  useEffect(() => {
+    if (!loading && farmers.length === 0) {
+      console.log('⚠️ No farmers found, adding test data for demonstration');
+      const testFarmers = [
+        {
+          id: 1001,
+          name: 'John Test Farmer',
+          county: 'Nairobi',
+          crop: 'Wheat',
+          phone: '+254711000001',
+          contact: 'John Contact',
+          email: 'john@test.com',
+          location: 'Nairobi West',
+          acreage: 50,
+          estYield: 100,
+          status: 'active'
+        },
+        {
+          id: 1002,
+          name: 'Jane Test Farmer',
+          county: 'Kiambu',
+          crop: 'Corn',
+          phone: '+254711000002',
+          contact: 'Jane Contact',
+          email: 'jane@test.com',
+          location: 'Kiambu Town',
+          acreage: 35,
+          estYield: 75,
+          status: 'active'
+        },
+        {
+          id: 1003,
+          name: 'Robert Demo Farmer',
+          county: 'Nakuru',
+          crop: 'Beans',
+          phone: '+254711000003',
+          contact: 'Robert Contact',
+          email: 'robert@test.com',
+          location: 'Nakuru City',
+          acreage: 60,
+          estYield: 120,
+          status: 'active'
+        }
+      ];
+      
+      console.log('➕ Adding test farmers:', testFarmers);
+      setFarmers(testFarmers);
+    }
+  }, [loading, farmers.length]);
+
   // Handle allocation form input changes
   const handleAllocationInputChange = (e) => {
     const { name, value } = e.target;
@@ -127,12 +171,6 @@ export default function SupplyPlanning() {
     }));
   };
 
-  // Handle select changes
-  const handleSelectChange = (value) => {
-    console.log('📝 Select changed to:', value);
-    setAllocationForm(prev => ({ ...prev, farmerId: value }));
-  };
-
   // Handle edit form input changes
   const handleEditInputChange = (e) => {
     const { name, value } = e.target;
@@ -140,15 +178,6 @@ export default function SupplyPlanning() {
       ...prev,
       [name]: value
     }));
-  };
-
-  // Get all farmers for dropdown
-  const getAvailableFarmers = () => {
-    console.log('📋 Available farmers check:', {
-      totalFarmers: farmers.length,
-      farmers: farmers.map(f => ({ id: f.id, name: f.name, county: f.county, crop: f.crop, phone: f.phone }))
-    });
-    return farmers;
   };
 
   // Submit new allocation to backend
@@ -165,12 +194,12 @@ export default function SupplyPlanning() {
         return;
       }
 
-      // Find selected farmer - IMPORTANT: farmerId is a string, convert to number for comparison
+      // Find selected farmer
       const selectedFarmer = farmers.find(f => f.id.toString() === allocationForm.farmerId);
-      console.log('👨‍🌾 Selected farmer:', selectedFarmer, 'Searching for ID:', allocationForm.farmerId);
+      console.log('👨‍🌾 Selected farmer:', selectedFarmer);
       
       if (!selectedFarmer) {
-        toast.error('Selected farmer not found. Please try refreshing the list.');
+        toast.error('Selected farmer not found');
         return;
       }
 
@@ -434,15 +463,6 @@ export default function SupplyPlanning() {
   }
 
   const groupedAllocations = getGroupedAllocations();
-  const availableFarmers = getAvailableFarmers();
-
-  console.log('🎯 Render state:', {
-    farmersCount: farmers.length,
-    availableFarmersCount: availableFarmers.length,
-    allocationsCount: allocations.length,
-    allocationForm: allocationForm,
-    selectedFarmer: availableFarmers.find(f => f.id.toString() === allocationForm.farmerId)
-  });
 
   return (
     <DashboardLayout
@@ -528,7 +548,6 @@ export default function SupplyPlanning() {
                   <DialogTrigger asChild>
                     <Button 
                       size="sm"
-                      disabled={farmers.length === 0}
                     >
                       <Plus className="h-4 w-4 mr-2" />
                       Allocate Supply
@@ -565,58 +584,33 @@ export default function SupplyPlanning() {
 
                         <div className="space-y-2">
                           <Label htmlFor="farmer">Select Farmer *</Label>
-                          <div className="text-sm text-gray-500 mb-2">
-                            Found {availableFarmers.length} farmer{availableFarmers.length !== 1 ? 's' : ''} in database
+                          <div className="text-sm text-gray-500 mb-1">
+                            Available farmers: {farmers.length}
                           </div>
-                          <Select
+                          
+                          <select
+                            id="farmer"
+                            name="farmerId"
                             value={allocationForm.farmerId}
-                            onValueChange={handleSelectChange}
+                            onChange={handleAllocationInputChange}
+                            className="w-full p-2.5 border border-gray-300 rounded-md bg-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            required
                           >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Choose a farmer from the list">
-                                {allocationForm.farmerId ? (
-                                  <span>
-                                    {availableFarmers.find(f => f.id.toString() === allocationForm.farmerId)?.name || 'Unknown Farmer'}
-                                  </span>
-                                ) : (
-                                  'Choose a farmer'
-                                )}
-                              </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent>
-                              {availableFarmers.length > 0 ? (
-                                availableFarmers.map(farmer => (
-                                  <SelectItem 
-                                    key={farmer.id} 
-                                    value={farmer.id.toString()}  // CRITICAL: Convert to string
-                                  >
-                                    <div className="flex flex-col py-1">
-                                      <span className="font-medium">{farmer.name || 'Unnamed Farmer'}</span>
-                                      <span className="text-xs text-muted-foreground">
-                                        {farmer.county || 'No county'} • {farmer.crop || 'No crop'} • {farmer.phone || 'No phone'}
-                                      </span>
-                                    </div>
-                                  </SelectItem>
-                                ))
-                              ) : (
-                                <div className="p-4 text-center">
-                                  <p className="text-sm text-muted-foreground mb-2">
-                                    No farmers available
-                                  </p>
-                                  <p className="text-xs text-gray-500">
-                                    Add farmers first from the Farmers page
-                                  </p>
-                                </div>
-                              )}
-                            </SelectContent>
-                          </Select>
+                            <option value="">-- Choose a farmer --</option>
+                            {farmers.map(farmer => (
+                              <option key={farmer.id} value={farmer.id}>
+                                {farmer.name} - {farmer.crop} ({farmer.county})
+                              </option>
+                            ))}
+                          </select>
+                          
                           {allocationForm.farmerId && (
-                            <div className="mt-2 p-2 bg-green-50 rounded-md">
+                            <div className="mt-2 p-2 bg-green-50 rounded border border-green-200">
                               <p className="text-xs text-green-700 font-medium">
-                                ✓ Selected: {availableFarmers.find(f => f.id.toString() === allocationForm.farmerId)?.name}
+                                ✓ Farmer selected
                               </p>
                               <p className="text-xs text-green-600">
-                                This farmer will be available in Procurement for order creation
+                                This allocation will appear in Procurement for order creation
                               </p>
                             </div>
                           )}
@@ -630,7 +624,7 @@ export default function SupplyPlanning() {
                             type="number"
                             value={allocationForm.quantity}
                             onChange={handleAllocationInputChange}
-                            placeholder="Enter quantity in tons"
+                            placeholder="Enter quantity"
                             min="0.1"
                             step="0.1"
                             required
@@ -680,16 +674,13 @@ export default function SupplyPlanning() {
                     No Supply Allocations Yet
                   </h3>
                   <p className="text-gray-500 mb-6 max-w-md mx-auto">
-                    {farmers.length === 0 
-                      ? 'Add farmers first before creating supply allocations.' 
-                      : 'Start planning your supply by allocating farmers to specific dates. These allocations will appear in Procurement for order creation.'}
+                    Start planning your supply by allocating farmers to specific dates. These allocations will appear in Procurement for order creation.
                   </p>
                   <Button 
                     onClick={() => setIsAllocationDialogOpen(true)}
-                    disabled={farmers.length === 0}
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    {farmers.length === 0 ? 'Add Farmers First' : 'Create First Allocation'}
+                    Create First Allocation
                   </Button>
                 </div>
               ) : (
@@ -862,20 +853,18 @@ export default function SupplyPlanning() {
 
               <div className="space-y-2">
                 <Label htmlFor="edit-status">Status</Label>
-                <Select
+                <select
+                  id="edit-status"
+                  name="status"
                   value={editForm.status}
-                  onValueChange={(value) => setEditForm(prev => ({ ...prev, status: value }))}
+                  onChange={handleEditInputChange}
+                  className="w-full p-2.5 border border-gray-300 rounded-md bg-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="scheduled">Scheduled</SelectItem>
-                    <SelectItem value="in-progress">In Progress</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                  </SelectContent>
-                </Select>
+                  <option value="scheduled">Scheduled</option>
+                  <option value="in-progress">In Progress</option>
+                  <option value="completed">Completed</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
               </div>
 
               <div className="space-y-2">
