@@ -43,6 +43,7 @@ import {
   XCircle,
   Users, 
   Edit,
+  RefreshCw,
   Truck,          
   Package,        
   MapPin,         
@@ -77,17 +78,34 @@ export default function SupplyPlanning() {
     try {
       setLoading(true);
       
+      console.log('🔄 Fetching supply planning data...');
+      
       // Fetch both farmers and allocations from backend
       const [farmersResponse, allocationsResponse] = await Promise.all([
         apiService.farmers.getAll(),
         apiService.supply.getAllocations()
       ]);
       
-      setFarmers(farmersResponse || []);
-      setAllocations(allocationsResponse || []);
+      // DEBUG: Log the response
+      console.log('📊 Farmers API Response:', farmersResponse);
+      console.log('📊 Farmers count:', farmersResponse?.length || 0);
+      console.log('📊 Sample farmer:', farmersResponse?.[0]);
+      console.log('📊 Allocations count:', allocationsResponse?.length || 0);
+      
+      // Ensure we have an array
+      const farmersArray = Array.isArray(farmersResponse) ? farmersResponse : [];
+      const allocationsArray = Array.isArray(allocationsResponse) ? allocationsResponse : [];
+      
+      setFarmers(farmersArray);
+      setAllocations(allocationsArray);
+      
+      console.log('✅ Data loaded:', {
+        farmers: farmersArray.length,
+        allocations: allocationsArray.length
+      });
       
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('❌ Error fetching data:', error);
       toast.error('Failed to load supply planning data');
       setFarmers([]);
       setAllocations([]);
@@ -118,9 +136,12 @@ export default function SupplyPlanning() {
     }));
   };
 
-  // SIMPLER VERSION: Get all farmers for dropdown (no filtering by date)
+  // Get all farmers for dropdown
   const getAvailableFarmers = () => {
-    // Return ALL farmers for simplicity
+    console.log('📋 Available farmers check:', {
+      totalFarmers: farmers.length,
+      farmers: farmers.map(f => ({ id: f.id, name: f.name }))
+    });
     return farmers;
   };
 
@@ -160,7 +181,7 @@ export default function SupplyPlanning() {
       const newAllocation = {
         farmerId: parseInt(allocationForm.farmerId),
         farmerName: selectedFarmer.name,
-        farmerCounty: selectedFarmer.county,
+        farmerCounty: selectedFarmer.county || '',
         farmerCrop: selectedFarmer.crop || 'Not specified',
         farmerContact: selectedFarmer.contact || '',
         farmerPhone: selectedFarmer.phone || '',
@@ -170,6 +191,8 @@ export default function SupplyPlanning() {
         notes: allocationForm.notes,
         status: 'scheduled'
       };
+
+      console.log('📤 Creating allocation:', newAllocation);
 
       // Send to backend API
       const savedAllocation = await apiService.supply.createAllocation(newAllocation);
@@ -190,7 +213,7 @@ export default function SupplyPlanning() {
       await fetchData();
       
     } catch (error) {
-      console.error('Error creating allocation:', error);
+      console.error('❌ Error creating allocation:', error);
       toast.error(error.response?.data?.error || 'Failed to allocate supply');
     }
   };
@@ -228,7 +251,7 @@ export default function SupplyPlanning() {
       await fetchData();
       
     } catch (error) {
-      console.error('Error updating status:', error);
+      console.error('❌ Error updating status:', error);
       toast.error('Failed to update status');
     }
   };
@@ -286,7 +309,7 @@ export default function SupplyPlanning() {
       await fetchData();
       
     } catch (error) {
-      console.error('Error updating allocation:', error);
+      console.error('❌ Error updating allocation:', error);
       toast.error('Failed to update allocation');
     }
   };
@@ -309,7 +332,7 @@ export default function SupplyPlanning() {
       await fetchData();
       
     } catch (error) {
-      console.error('Error deleting allocation:', error);
+      console.error('❌ Error deleting allocation:', error);
       toast.error('Failed to delete allocation');
     }
   };
@@ -386,6 +409,20 @@ export default function SupplyPlanning() {
     return allocations.reduce((total, allocation) => total + (allocation.quantity || 0), 0);
   };
 
+  // Add test farmer for debugging
+  const addTestFarmer = () => {
+    const testFarmer = {
+      id: Date.now(),
+      name: `Test Farmer ${Date.now().toString().slice(-4)}`,
+      county: 'Nairobi',
+      crop: 'Wheat',
+      phone: '+254700000000',
+      contact: 'Test Contact'
+    };
+    setFarmers(prev => [...prev, testFarmer]);
+    toast.success('Test farmer added to local state');
+  };
+
   if (loading) {
     return (
       <DashboardLayout
@@ -404,6 +441,12 @@ export default function SupplyPlanning() {
 
   const groupedAllocations = getGroupedAllocations();
   const availableFarmers = getAvailableFarmers();
+
+  console.log('🎯 Render state:', {
+    farmersCount: farmers.length,
+    availableFarmersCount: availableFarmers.length,
+    allocationsCount: allocations.length
+  });
 
   return (
     <DashboardLayout
@@ -469,127 +512,157 @@ export default function SupplyPlanning() {
                   Allocate farmers to specific dates for supply delivery. These will appear in Procurement.
                 </CardDescription>
               </div>
-              <Dialog open={isAllocationDialogOpen} onOpenChange={setIsAllocationDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button 
-                    size="sm"
-                    disabled={farmers.length === 0}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Allocate Supply
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-md max-h-[90vh] overflow-hidden flex flex-col">
-                  <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
-                    <DialogTitle>Allocate Supply Date</DialogTitle>
-                    <DialogDescription>
-                      Select a date and assign a farmer for supply delivery. This farmer will appear in Procurement.
-                    </DialogDescription>
-                  </DialogHeader>
-                  
-                  <div className="overflow-y-auto flex-1 p-6">
-                    <div className="grid gap-6">
-                      <div className="space-y-2">
-                        <Label>Select Date *</Label>
-                        <Calendar
-                          mode="single"
-                          selected={selectedDate}
-                          onSelect={setSelectedDate}
-                          className="rounded-md border"
-                          disabled={(date) => date < new Date()}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Selected: {selectedDate.toLocaleDateString('en-US', { 
-                            weekday: 'long', 
-                            year: 'numeric', 
-                            month: 'long', 
-                            day: 'numeric' 
-                          })}
-                        </p>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="farmer">Select Farmer *</Label>
-                        <Select
-                          value={allocationForm.farmerId}
-                          onValueChange={(value) => setAllocationForm(prev => ({ ...prev, farmerId: value }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Choose a farmer" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {farmers.length > 0 ? (
-                              farmers.map(farmer => (
-                                <SelectItem key={farmer.id} value={farmer.id.toString()}>
-                                  <div className="flex flex-col">
-                                    <span className="font-medium">{farmer.name}</span>
-                                    <span className="text-xs text-muted-foreground">
-                                      {farmer.county} • {farmer.crop || 'No crop'} • {farmer.phone || 'No phone'}
-                                    </span>
-                                  </div>
-                                </SelectItem>
-                              ))
-                            ) : (
-                              <div className="p-2 text-center">
-                                <p className="text-sm text-muted-foreground">
-                                  No farmers available. Add farmers first.
-                                </p>
-                              </div>
-                            )}
-                          </SelectContent>
-                        </Select>
-                        {allocationForm.farmerId && (
-                          <p className="text-xs text-green-600">
-                            ✓ This farmer will be available in Procurement for order creation
+              <div className="flex gap-2">
+                {/* Debug button - remove in production */}
+                <Button 
+                  size="sm"
+                  variant="outline"
+                  onClick={addTestFarmer}
+                  title="Add test farmer for debugging"
+                >
+                  Test
+                </Button>
+                
+                <Button 
+                  size="sm"
+                  variant="outline"
+                  onClick={fetchData}
+                  title="Refresh data"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+                
+                <Dialog open={isAllocationDialogOpen} onOpenChange={(open) => {
+                  setIsAllocationDialogOpen(open);
+                  if (open) {
+                    // Refresh data when dialog opens
+                    fetchData();
+                  }
+                }}>
+                  <DialogTrigger asChild>
+                    <Button 
+                      size="sm"
+                      disabled={farmers.length === 0}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Allocate Supply
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-md max-h-[90vh] overflow-hidden flex flex-col">
+                    <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
+                      <DialogTitle>Allocate Supply Date</DialogTitle>
+                      <DialogDescription>
+                        Select a date and assign a farmer for supply delivery. This farmer will appear in Procurement.
+                      </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="overflow-y-auto flex-1 p-6">
+                      <div className="grid gap-6">
+                        <div className="space-y-2">
+                          <Label>Select Date *</Label>
+                          <Calendar
+                            mode="single"
+                            selected={selectedDate}
+                            onSelect={setSelectedDate}
+                            className="rounded-md border"
+                            disabled={(date) => date < new Date()}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Selected: {selectedDate.toLocaleDateString('en-US', { 
+                              weekday: 'long', 
+                              year: 'numeric', 
+                              month: 'long', 
+                              day: 'numeric' 
+                            })}
                           </p>
-                        )}
-                      </div>
+                        </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="quantity">Quantity (tons) *</Label>
-                        <Input
-                          id="quantity"
-                          name="quantity"
-                          type="number"
-                          value={allocationForm.quantity}
-                          onChange={handleAllocationInputChange}
-                          placeholder="Enter quantity"
-                          min="0.1"
-                          step="0.1"
-                          required
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          This will pre-fill the quantity in Procurement orders
-                        </p>
-                      </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="farmer">Select Farmer *</Label>
+                          <Select
+                            value={allocationForm.farmerId}
+                            onValueChange={(value) => setAllocationForm(prev => ({ ...prev, farmerId: value }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Choose a farmer" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableFarmers.length > 0 ? (
+                                availableFarmers.map(farmer => (
+                                  <SelectItem key={farmer.id} value={farmer.id.toString()}>
+                                    <div className="flex flex-col">
+                                      <span className="font-medium">{farmer.name}</span>
+                                      <span className="text-xs text-muted-foreground">
+                                        {farmer.county || 'No county'} • {farmer.crop || 'No crop'} • {farmer.phone || 'No phone'}
+                                      </span>
+                                    </div>
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <div className="p-2 text-center">
+                                  <p className="text-sm text-muted-foreground">
+                                    No farmers available. Add farmers first.
+                                  </p>
+                                </div>
+                              )}
+                            </SelectContent>
+                          </Select>
+                          {allocationForm.farmerId && (
+                            <p className="text-xs text-green-600">
+                              ✓ This farmer will be available in Procurement for order creation
+                            </p>
+                          )}
+                          <p className="text-xs text-gray-500">
+                            Showing {availableFarmers.length} farmer{availableFarmers.length !== 1 ? 's' : ''}
+                          </p>
+                        </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="notes">Notes</Label>
-                        <Input
-                          id="notes"
-                          name="notes"
-                          value={allocationForm.notes}
-                          onChange={handleAllocationInputChange}
-                          placeholder="Additional notes for procurement team..."
-                        />
+                        <div className="space-y-2">
+                          <Label htmlFor="quantity">Quantity (tons) *</Label>
+                          <Input
+                            id="quantity"
+                            name="quantity"
+                            type="number"
+                            value={allocationForm.quantity}
+                            onChange={handleAllocationInputChange}
+                            placeholder="Enter quantity"
+                            min="0.1"
+                            step="0.1"
+                            required
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            This will pre-fill the quantity in Procurement orders
+                          </p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="notes">Notes</Label>
+                          <Input
+                            id="notes"
+                            name="notes"
+                            value={allocationForm.notes}
+                            onChange={handleAllocationInputChange}
+                            placeholder="Additional notes for procurement team..."
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
-                    <Button variant="outline" onClick={() => setIsAllocationDialogOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button 
-                      onClick={handleAllocationSubmit}
-                      disabled={!allocationForm.farmerId || !allocationForm.quantity}
-                    >
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Create Allocation
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+                    <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
+                      <Button variant="outline" onClick={() => setIsAllocationDialogOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button 
+                        onClick={handleAllocationSubmit}
+                        disabled={!allocationForm.farmerId || !allocationForm.quantity}
+                      >
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Create Allocation
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </CardHeader>
             
             <CardContent>
