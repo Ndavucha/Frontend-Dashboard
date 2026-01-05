@@ -459,7 +459,7 @@ export default function Contracts() {
                   New Contract
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[600px]">
+              <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>
                     {editingContract ? 'Edit Contract' : 'Create New Contract'}
@@ -474,7 +474,8 @@ export default function Contracts() {
                 
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Supplier Name */}
                       <FormField
                         control={form.control}
                         name="supplierName"
@@ -489,6 +490,7 @@ export default function Contracts() {
                         )}
                       />
                       
+                      {/* Supplier Type - FIXED: Added this field */}
                       <FormField
                         control={form.control}
                         name="supplierType"
@@ -498,7 +500,7 @@ export default function Contracts() {
                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                               <FormControl>
                                 <SelectTrigger>
-                                  <SelectValue placeholder="Select type" />
+                                  <SelectValue placeholder="Select supplier type" />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
@@ -512,7 +514,8 @@ export default function Contracts() {
                       />
                     </div>
                     
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Quantity */}
                       <FormField
                         control={form.control}
                         name="contractedQuantity"
@@ -527,6 +530,7 @@ export default function Contracts() {
                         )}
                       />
                       
+                      {/* Start Date */}
                       <FormField
                         control={form.control}
                         name="startDate"
@@ -541,6 +545,7 @@ export default function Contracts() {
                         )}
                       />
                       
+                      {/* End Date */}
                       <FormField
                         control={form.control}
                         name="endDate"
@@ -556,6 +561,7 @@ export default function Contracts() {
                       />
                     </div>
                     
+                    {/* Pricing Terms */}
                     <FormField
                       control={form.control}
                       name="pricingTerms"
@@ -570,6 +576,7 @@ export default function Contracts() {
                       )}
                     />
                     
+                    {/* Payment Terms */}
                     <FormField
                       control={form.control}
                       name="paymentTerms"
@@ -584,7 +591,8 @@ export default function Contracts() {
                       )}
                     />
                     
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Fulfillment Percentage */}
                       <FormField
                         control={form.control}
                         name="fulfillmentPercentage"
@@ -592,13 +600,20 @@ export default function Contracts() {
                           <FormItem>
                             <FormLabel>Fulfillment %</FormLabel>
                             <FormControl>
-                              <Input type="number" placeholder="0" {...field} />
+                              <Input 
+                                type="number" 
+                                min="0" 
+                                max="100" 
+                                placeholder="0" 
+                                {...field} 
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
                       
+                      {/* Status - FIXED: Added this field */}
                       <FormField
                         control={form.control}
                         name="status"
@@ -624,6 +639,24 @@ export default function Contracts() {
                       />
                     </div>
                     
+                    {/* Notes */}
+                    <FormField
+                      control={form.control}
+                      name="notes"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Notes</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              placeholder="Additional notes or terms..." 
+                              className="min-h-[80px]"
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                     
                     <DialogFooter>
                       <Button 
@@ -674,7 +707,7 @@ export default function Contracts() {
                     <TableRow key={contract.id} className="hover:bg-muted/30 transition-colors">
                       <TableCell className="font-medium">{contract.supplierName}</TableCell>
                       <TableCell>
-                        <Badge variant={contract.supplierType === 'farmer' ? 'farmer' : 'aggregator'}>
+                        <Badge variant={contract.supplierType === 'farmer' ? 'default' : 'secondary'}>
                           {contract.supplierType}
                         </Badge>
                       </TableCell>
@@ -788,7 +821,7 @@ export default function Contracts() {
                   </div>
                   <div>
                     <h4 className="text-sm font-medium text-muted-foreground">Type</h4>
-                    <Badge variant={viewingContract.supplierType === 'farmer' ? 'farmer' : 'aggregator'}>
+                    <Badge variant={viewingContract.supplierType === 'farmer' ? 'default' : 'secondary'}>
                       {viewingContract.supplierType}
                     </Badge>
                   </div>
@@ -893,4 +926,3 @@ export default function Contracts() {
     </DashboardLayout>
   );
 }
-
