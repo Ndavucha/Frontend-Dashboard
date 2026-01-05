@@ -71,7 +71,8 @@ import {
   Copy,
   MapPin,
   Sprout,
-  RefreshCw
+  RefreshCw,
+  Bug
 } from 'lucide-react';
 import { apiService } from '@/api/services';
 import { toast } from 'sonner';
@@ -85,6 +86,8 @@ export default function Procurement() {
   const [supplyAllocations, setSupplyAllocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debugData, setDebugData] = useState({});
+  const [showDebug, setShowDebug] = useState(false);
   
   // Dialog states
   const [isStep1DialogOpen, setIsStep1DialogOpen] = useState(false);
@@ -156,23 +159,46 @@ export default function Procurement() {
         apiService.supply.getAllocations()
       ]);
       
-      console.log('📊 Raw data fetched:', {
-        orders: ordersData,
-        farmers: farmersData,
-        aggregators: aggregatorsData,
-        allocations: allocationsData
-      });
+      // Deep log the data structure
+      console.log('📊 =========== RAW DATA STRUCTURE ===========');
+      console.log('📦 Orders:', JSON.stringify(ordersData, null, 2));
+      console.log('👨‍🌾 Farmers:', JSON.stringify(farmersData, null, 2));
+      console.log('👥 Aggregators:', JSON.stringify(aggregatorsData, null, 2));
+      console.log('📅 Supply Allocations:', JSON.stringify(allocationsData, null, 2));
+      console.log('📊 ==========================================');
       
-      // Log structure of allocations
-      if (allocationsData && allocationsData.length > 0) {
-        console.log('📋 First allocation structure:', {
-          id: allocationsData[0].id,
-          farmerId: allocationsData[0].farmerId,
-          status: allocationsData[0].status,
-          date: allocationsData[0].date,
-          quantity: allocationsData[0].quantity
-        });
-      }
+      // Store debug data
+      setDebugData({
+        orders: {
+          count: ordersData?.length || 0,
+          sample: ordersData?.[0],
+          type: Array.isArray(ordersData) ? 'array' : typeof ordersData,
+          full: ordersData
+        },
+        farmers: {
+          count: farmersData?.length || 0,
+          sample: farmersData?.[0],
+          type: Array.isArray(farmersData) ? 'array' : typeof farmersData,
+          full: farmersData
+        },
+        aggregators: {
+          count: aggregatorsData?.length || 0,
+          sample: aggregatorsData?.[0],
+          type: Array.isArray(aggregatorsData) ? 'array' : typeof aggregatorsData,
+          full: aggregatorsData
+        },
+        allocations: {
+          count: allocationsData?.length || 0,
+          sample: allocationsData?.[0],
+          type: Array.isArray(allocationsData) ? 'array' : typeof allocationsData,
+          full: allocationsData,
+          scheduled: allocationsData?.filter(a => a.status === 'scheduled')?.length || 0,
+          statuses: allocationsData?.reduce((acc, a) => {
+            acc[a.status] = (acc[a.status] || 0) + 1;
+            return acc;
+          }, {})
+        }
+      });
       
       setOrders(ordersData || []);
       setFarmers(farmersData || []);
@@ -182,7 +208,6 @@ export default function Procurement() {
     } catch (error) {
       console.error('❌ Error fetching data:', error);
       toast.error('Failed to load procurement data');
-      // Initialize empty arrays on error
       setOrders([]);
       setFarmers([]);
       setAggregators([]);
@@ -195,23 +220,6 @@ export default function Procurement() {
   useEffect(() => {
     fetchData();
   }, []);
-
-  // Debug data status
-  useEffect(() => {
-    if (!loading) {
-      console.log('📊 Procurement Data Status:', {
-        orders: orders.length,
-        farmers: farmers.length,
-        aggregators: aggregators.length,
-        supplyAllocations: supplyAllocations.length,
-        farmersWithAllocations: getFarmersWithAllocations().length
-      });
-      
-      if (supplyAllocations.length > 0) {
-        console.log('📋 Sample supply allocation:', supplyAllocations[0]);
-      }
-    }
-  }, [loading, orders, farmers, aggregators, supplyAllocations]);
 
   // Filter orders based on search
   const filteredOrders = orders.filter(order => {
@@ -266,66 +274,61 @@ export default function Procurement() {
 
   // Get farmers with scheduled supply allocations (for dropdown)
   const getFarmersWithAllocations = () => {
-    console.log('🔄 Getting farmers with allocations:', {
-      totalFarmers: farmers.length,
-      totalAllocations: supplyAllocations.length,
-      allocationsByStatus: supplyAllocations.reduce((acc, alloc) => {
-        acc[alloc.status] = (acc[alloc.status] || 0) + 1;
-        return acc;
-      }, {})
-    });
+    console.log('🔄 ===== DEBUG: getFarmersWithAllocations() =====');
+    console.log('Farmers array length:', farmers?.length);
+    console.log('Farmers first item:', farmers?.[0]);
+    console.log('Allocations array length:', supplyAllocations?.length);
+    console.log('Allocations first item:', supplyAllocations?.[0]);
 
-    if (!supplyAllocations.length || !farmers.length) {
+    if (!supplyAllocations?.length || !farmers?.length) {
       console.log('⚠️ No allocations or farmers available');
       return [];
     }
 
-    // Log all allocations for debugging
-    console.log('📝 All allocations:', supplyAllocations.map(a => ({
-      id: a.id,
-      farmerId: a.farmerId,
-      status: a.status,
-      farmerName: farmers.find(f => f.id?.toString() === a.farmerId?.toString())?.name || 'Unknown'
-    })));
-
     // Get allocations that are scheduled
-    const availableAllocations = supplyAllocations.filter(allocation => {
-      const isScheduled = allocation.status === 'scheduled';
-      console.log(`Allocation ${allocation.id}: status=${allocation.status}, isScheduled=${isScheduled}`);
-      return isScheduled;
+    const scheduledAllocations = supplyAllocations.filter(allocation => {
+      const status = allocation?.status;
+      console.log(`Allocation ${allocation?.id}: status="${status}", farmerId="${allocation?.farmerId}"`);
+      return status === 'scheduled';
     });
 
-    console.log('📅 Available (scheduled) allocations:', availableAllocations.length);
+    console.log('Scheduled allocations count:', scheduledAllocations.length);
+    
+    // Get all farmer IDs from scheduled allocations
+    const scheduledFarmerIds = scheduledAllocations.map(a => {
+      const farmerId = a?.farmerId;
+      console.log(`Farmer ID from allocation: ${farmerId} (type: ${typeof farmerId})`);
+      return farmerId?.toString();
+    }).filter(Boolean);
 
-    // Get all scheduled allocation farmer IDs
-    const allocatedFarmerIds = availableAllocations.map(a => a.farmerId?.toString());
-    console.log('👨‍🌾 Farmer IDs with scheduled allocations:', allocatedFarmerIds);
+    console.log('Scheduled farmer IDs:', scheduledFarmerIds);
 
-    // Filter farmers who have scheduled allocations
+    // Find farmers with those IDs
     const farmersWithAllocations = farmers.filter(farmer => {
-      const hasAllocation = allocatedFarmerIds.includes(farmer.id?.toString());
-      if (hasAllocation) {
-        console.log(`✅ Farmer ${farmer.name} (ID: ${farmer.id}) has scheduled allocation`);
-      }
+      const farmerId = farmer?.id?.toString();
+      const hasAllocation = scheduledFarmerIds.includes(farmerId);
+      console.log(`Checking farmer ${farmer?.name} (ID: ${farmerId}): hasAllocation=${hasAllocation}`);
       return hasAllocation;
     });
 
-    // Map with allocations details
-    const result = farmersWithAllocations.map(farmer => {
-      const farmerAllocations = availableAllocations.filter(a => 
-        a.farmerId?.toString() === farmer.id?.toString()
+    console.log('Farmers with allocations:', farmersWithAllocations.length);
+    console.log('Farmers with allocations details:', farmersWithAllocations.map(f => ({
+      id: f.id,
+      name: f.name,
+      crop: f.crop
+    })));
+    console.log('============================================');
+
+    return farmersWithAllocations.map(farmer => {
+      const farmerAllocations = scheduledAllocations.filter(a => 
+        a?.farmerId?.toString() === farmer?.id?.toString()
       );
-      
-      console.log(`Farmer ${farmer.name} has ${farmerAllocations.length} scheduled allocations`);
       
       return {
         ...farmer,
         allocations: farmerAllocations
       };
     });
-
-    console.log('✅ Final farmers with allocations:', result);
-    return result;
   };
 
   // Handle Step 1 form input changes
@@ -357,18 +360,24 @@ export default function Procurement() {
     
     // When farmer is selected, auto-fill their details
     if (name === 'farmerId' && value) {
-      console.log('👨‍🌾 Farmer selected:', value);
+      const farmer = farmers.find(f => {
+        const farmerId = f?.id?.toString();
+        const selectedId = value?.toString();
+        console.log(`Looking for farmer: selectedId=${selectedId}, farmerId=${farmerId}, match=${farmerId === selectedId}`);
+        return farmerId === selectedId;
+      });
       
-      // Find farmer from all farmers (not just those with allocations)
-      const farmer = farmers.find(f => f.id?.toString() === value.toString());
       console.log('Found farmer:', farmer);
       
       if (farmer) {
         // Find allocation for this farmer
-        const allocation = supplyAllocations.find(a => 
-          a.farmerId?.toString() === farmer.id?.toString() && 
-          a.status === 'scheduled'
-        );
+        const allocation = supplyAllocations.find(a => {
+          const allocationFarmerId = a?.farmerId?.toString();
+          const farmerId = farmer?.id?.toString();
+          const isScheduled = a?.status === 'scheduled';
+          console.log(`Checking allocation: allocationFarmerId=${allocationFarmerId}, farmerId=${farmerId}, isScheduled=${isScheduled}, match=${allocationFarmerId === farmerId}`);
+          return allocationFarmerId === farmerId && isScheduled;
+        });
         
         console.log('Found allocation:', allocation);
         
@@ -382,7 +391,7 @@ export default function Procurement() {
           cropName: farmer.crop || '',
           quantityOrdered: allocation?.quantity?.toString() || '',
           deliveryDate: allocation?.date ? new Date(allocation.date).toISOString().split('T')[0] : '',
-          pricePerUnit: '15000', // Default price
+          pricePerUnit: '15000',
           lpoNumber: `LPO-${new Date().getFullYear()}-${String(orders.length + 1).padStart(3, '0')}`
         }));
       }
@@ -390,7 +399,7 @@ export default function Procurement() {
     
     // When aggregator is selected, auto-fill their details
     if (name === 'aggregatorId' && value) {
-      const aggregator = aggregators.find(a => a.id?.toString() === value?.toString());
+      const aggregator = aggregators.find(a => a?.id?.toString() === value?.toString());
       if (aggregator) {
         setStep1Form(prev => ({
           ...prev,
@@ -504,7 +513,7 @@ export default function Procurement() {
 
       // Add farmer-specific data
       if (step1Form.supplierType === 'farmer' && step1Form.farmerId) {
-        const farmer = farmers.find(f => f.id?.toString() === step1Form.farmerId?.toString());
+        const farmer = farmers.find(f => f?.id?.toString() === step1Form.farmerId?.toString());
         if (farmer) {
           newOrder.farmerId = farmer.id;
           newOrder.farmerContractNumber = farmer.contractNumber;
@@ -514,7 +523,7 @@ export default function Procurement() {
           
           // Mark the allocation as used (convert to in-progress)
           const allocation = supplyAllocations.find(a => 
-            a.farmerId?.toString() === farmer.id?.toString() && 
+            a?.farmerId?.toString() === farmer?.id?.toString() && 
             a.status === 'scheduled'
           );
           if (allocation) {
@@ -647,7 +656,7 @@ Procurement Team`;
         return;
       }
 
-      const order = orders.find(o => o.id?.toString() === step2Form.orderId?.toString());
+      const order = orders.find(o => o?.id?.toString() === step2Form.orderId?.toString());
       if (!order) {
         toast.error('Order not found');
         return;
@@ -674,7 +683,7 @@ Procurement Team`;
       // If this is a farmer order, update the allocation status
       if (order.farmerId) {
         const allocation = supplyAllocations.find(a => 
-          a.farmerId?.toString() === order.farmerId?.toString() && 
+          a?.farmerId?.toString() === order.farmerId?.toString() && 
           (a.status === 'in-progress' || a.status === 'scheduled')
         );
         if (allocation) {
@@ -706,7 +715,7 @@ Procurement Team`;
   // Update Payment Status
   const handleUpdatePayment = async () => {
     try {
-      const order = orders.find(o => o.id?.toString() === paymentForm.orderId?.toString());
+      const order = orders.find(o => o?.id?.toString() === paymentForm.orderId?.toString());
       if (!order) {
         toast.error('Order not found');
         return;
@@ -740,7 +749,7 @@ Procurement Team`;
   // Update Notes
   const handleUpdateNotes = async () => {
     try {
-      const order = orders.find(o => o.id?.toString() === notesForm.orderId?.toString());
+      const order = orders.find(o => o?.id?.toString() === notesForm.orderId?.toString());
       if (!order) {
         toast.error('Order not found');
         return;
@@ -930,6 +939,88 @@ Procurement Team`;
     </div>
   );
 
+  // Debug panel component
+  const DebugPanel = () => (
+    <div className="fixed bottom-4 right-4 z-50">
+      <Button 
+        onClick={() => setShowDebug(!showDebug)}
+        className="bg-red-600 hover:bg-red-700"
+        size="sm"
+      >
+        <Bug className="h-4 w-4 mr-2" />
+        Debug
+      </Button>
+      
+      {showDebug && (
+        <div className="absolute bottom-full right-0 mb-2 w-96 max-h-96 overflow-auto bg-gray-900 text-white p-4 rounded-lg shadow-xl">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="font-bold">Debug Data</h3>
+            <Button 
+              onClick={() => setShowDebug(false)}
+              size="sm"
+              variant="ghost"
+              className="text-white hover:bg-gray-800"
+            >
+              Close
+            </Button>
+          </div>
+          
+          <div className="space-y-4 text-sm">
+            <div>
+              <h4 className="font-semibold text-green-400">Farmers Data:</h4>
+              <pre className="bg-gray-800 p-2 rounded overflow-auto max-h-32">
+                {JSON.stringify(debugData.farmers?.full || farmers, null, 2)}
+              </pre>
+            </div>
+            
+            <div>
+              <h4 className="font-semibold text-blue-400">Allocations Data:</h4>
+              <pre className="bg-gray-800 p-2 rounded overflow-auto max-h-32">
+                {JSON.stringify(debugData.allocations?.full || supplyAllocations, null, 2)}
+              </pre>
+            </div>
+            
+            <div>
+              <h4 className="font-semibold text-yellow-400">Summary:</h4>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-gray-800 p-2 rounded">
+                  <div className="font-medium">Farmers Count:</div>
+                  <div>{debugData.farmers?.count || farmers.length}</div>
+                </div>
+                <div className="bg-gray-800 p-2 rounded">
+                  <div className="font-medium">Allocations Count:</div>
+                  <div>{debugData.allocations?.count || supplyAllocations.length}</div>
+                </div>
+                <div className="bg-gray-800 p-2 rounded">
+                  <div className="font-medium">Scheduled Allocations:</div>
+                  <div>{debugData.allocations?.scheduled || 0}</div>
+                </div>
+                <div className="bg-gray-800 p-2 rounded">
+                  <div className="font-medium">Available Farmers:</div>
+                  <div>{getFarmersWithAllocations().length}</div>
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <h4 className="font-semibold text-purple-400">Sample Farmer:</h4>
+              <pre className="bg-gray-800 p-2 rounded overflow-auto max-h-24">
+                {JSON.stringify(debugData.farmers?.sample || farmers[0] || {}, null, 2)}
+              </pre>
+            </div>
+            
+            <div>
+              <h4 className="font-semibold text-pink-400">Sample Allocation:</h4>
+              <pre className="bg-gray-800 p-2 rounded overflow-auto max-h-24">
+                {JSON.stringify(debugData.allocations?.sample || supplyAllocations[0] || {}, null, 2)}
+              </pre>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   // Loading state
   if (loading) {
     return (
@@ -952,6 +1043,9 @@ Procurement Team`;
       title="Procurement Management"
       description="Two-step procurement process: Order → Goods Receipt"
     >
+      {/* Debug Panel */}
+      <DebugPanel />
+      
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-5 mb-6">
         <Card>
@@ -1104,19 +1198,40 @@ Procurement Team`;
                               <div className="space-y-2">
                                 <Label htmlFor="farmer">Select Farmer *</Label>
                                 
-                                {/* Debug info */}
+                                {/* Debug info - ALWAYS SHOW */}
                                 <div className="text-xs bg-blue-50 p-2 rounded mb-2">
-                                  <div className="font-medium mb-1">Available Farmers with Scheduled Supply:</div>
+                                  <div className="font-medium mb-1">Data Status:</div>
                                   <div className="grid grid-cols-2 gap-1">
-                                    <span>Total Farmers:</span>
-                                    <span className="font-medium">{farmers.length}</span>
-                                    <span>Scheduled Allocations:</span>
-                                    <span className="font-medium">
+                                    <span>Farmers loaded:</span>
+                                    <span className={`font-medium ${farmers.length > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                      {farmers.length}
+                                    </span>
+                                    <span>Allocations loaded:</span>
+                                    <span className={`font-medium ${supplyAllocations.length > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                      {supplyAllocations.length}
+                                    </span>
+                                    <span>Scheduled allocations:</span>
+                                    <span className="font-medium text-blue-600">
                                       {supplyAllocations.filter(a => a.status === 'scheduled').length}
                                     </span>
-                                    <span>Available Farmers:</span>
-                                    <span className="font-medium">{getFarmersWithAllocations().length}</span>
+                                    <span>Available farmers:</span>
+                                    <span className={`font-medium ${getFarmersWithAllocations().length > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                      {getFarmersWithAllocations().length}
+                                    </span>
                                   </div>
+                                  
+                                  {/* Show sample data if available */}
+                                  {farmers.length > 0 && (
+                                    <div className="mt-2 text-xs">
+                                      <div className="font-medium">Sample farmer fields:</div>
+                                      <div className="mt-1">
+                                        <span className="text-gray-600">ID:</span> {farmers[0]?.id}<br/>
+                                        <span className="text-gray-600">Name:</span> {farmers[0]?.name}<br/>
+                                        <span className="text-gray-600">Crop:</span> {farmers[0]?.crop}<br/>
+                                        <span className="text-gray-600">Phone:</span> {farmers[0]?.phone}
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                                 
                                 <select
@@ -1160,7 +1275,7 @@ Procurement Team`;
                                   </p>
                                   {(() => {
                                     const selectedFarmer = getFarmersWithAllocations()
-                                      .find(f => f.id?.toString() === step1Form.farmerId?.toString());
+                                      .find(f => f?.id?.toString() === step1Form.farmerId?.toString());
                                     
                                     if (!selectedFarmer?.allocations?.length) {
                                       return (
