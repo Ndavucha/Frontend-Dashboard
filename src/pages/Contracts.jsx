@@ -1,84 +1,7 @@
 // src/pages/Contracts.jsx
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
-} from '@/components/ui/card';
-import { 
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Progress } from '@/components/ui/progress';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { 
-  FileText, 
-  Plus, 
-  Eye, 
-  Edit, 
-  Trash2, 
-  MoreVertical,
-  Calendar,
-  DollarSign,
-  FileCheck,
-  Loader2,
-  TrendingUp,
-  CheckCircle,
-  AlertTriangle,
-  Clock
-} from 'lucide-react';
+import { FileText, Plus, Eye, Edit, Trash2, MoreVertical, Calendar, DollarSign, FileCheck, Loader2, TrendingUp, CheckCircle, AlertTriangle, Clock, Upload } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -86,7 +9,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { apiService } from '@/api/services';
 
-// Date formatting helper with validation
+// Date formatting helper
 const formatDate = (dateString, formatStr = 'MMM dd, yyyy') => {
   if (!dateString) return 'N/A';
   try {
@@ -94,7 +17,6 @@ const formatDate = (dateString, formatStr = 'MMM dd, yyyy') => {
     if (isNaN(date.getTime())) return 'Invalid date';
     return format(date, formatStr);
   } catch (error) {
-    console.error('Error formatting date:', error);
     return 'Error';
   }
 };
@@ -111,6 +33,7 @@ const contractSchema = z.object({
   fulfillmentPercentage: z.coerce.number().min(0).max(100, 'Fulfillment must be between 0-100'),
   status: z.enum(['draft', 'active', 'completed', 'terminated']),
   notes: z.string().optional(),
+  contractImage: z.any().optional(),
 });
 
 export default function Contracts() {
@@ -123,6 +46,8 @@ export default function Contracts() {
   const [viewingContract, setViewingContract] = useState(null);
   const [contractToDelete, setContractToDelete] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [previewImage, setPreviewImage] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
 
   const form = useForm({
     resolver: zodResolver(contractSchema),
@@ -137,6 +62,7 @@ export default function Contracts() {
       fulfillmentPercentage: 0,
       status: 'draft',
       notes: '',
+      contractImage: null,
     },
   });
 
@@ -145,15 +71,11 @@ export default function Contracts() {
     try {
       setLoading(true);
       const response = await apiService.contracts.getAll();
-      console.log('API Response:', response); // Debug log
       if (response && Array.isArray(response.data)) {
-        console.log('First contract dates:', response.data[0]?.startDate, response.data[0]?.endDate);
         setContracts(response.data || []);
       } else if (response && Array.isArray(response)) {
-        console.log('First contract dates (array response):', response[0]?.startDate, response[0]?.endDate);
         setContracts(response || []);
       } else {
-        console.log('Unexpected API response format:', response);
         setContracts([]);
       }
     } catch (error) {
@@ -169,69 +91,49 @@ export default function Contracts() {
     fetchContracts();
   }, []);
 
-  // Calculate summary stats
-  const calculateStats = () => {
-    const activeContracts = contracts.filter(c => c.status === 'active').length;
-    const totalContractedQty = contracts.reduce((sum, contract) => sum + (contract.contractedQuantity || 0), 0);
-    const avgFulfillment = contracts.length > 0 
-      ? Math.round(contracts.reduce((sum, contract) => sum + (contract.fulfillmentPercentage || 0), 0) / contracts.length)
-      : 0;
-    
-    return { activeContracts, totalContractedQty, avgFulfillment };
+  // Handle file upload
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast.error('File size should be less than 5MB');
+        return;
+      }
+      setSelectedFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewImage(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
   };
-
-  const stats = calculateStats();
 
   // Handle form submission
   const onSubmit = async (data) => {
     try {
       setSubmitting(true);
       
-      // Ensure dates are valid
-      const startDate = data.startDate ? new Date(data.startDate) : new Date();
-      const endDate = data.endDate ? new Date(data.endDate) : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+      const formData = new FormData();
+      Object.keys(data).forEach(key => {
+        if (key !== 'contractImage') {
+          formData.append(key, data[key]);
+        }
+      });
+      
+      if (selectedFile) {
+        formData.append('contractImage', selectedFile);
+      }
       
       if (editingContract) {
-        // Update existing contract
-        const updatedData = {
-          ...data,
-          id: editingContract.id,
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
-        };
-        
-        await apiService.contracts.update(editingContract.id, updatedData);
+        await apiService.contracts.update(editingContract.id, formData);
         toast.success(`Contract with ${data.supplierName} updated successfully`);
       } else {
-        // Add new contract
-        const newContract = {
-          ...data,
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
-          createdAt: new Date().toISOString(),
-        };
-        
-        await apiService.contracts.create(newContract);
+        await apiService.contracts.create(formData);
         toast.success(`New contract with ${data.supplierName} created successfully`);
       }
       
-      // Refresh data
       await fetchContracts();
-      
-      // Reset form and close dialog
-      form.reset({
-        supplierName: '',
-        supplierType: 'farmer',
-        contractedQuantity: 20,
-        startDate: new Date().toISOString().split('T')[0],
-        endDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        pricingTerms: '',
-        paymentTerms: '',
-        fulfillmentPercentage: 0,
-        status: 'draft',
-        notes: '',
-      });
-      setEditingContract(null);
+      resetForm();
       setIsDialogOpen(false);
     } catch (error) {
       console.error('Error saving contract:', error);
@@ -239,6 +141,25 @@ export default function Contracts() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const resetForm = () => {
+    form.reset({
+      supplierName: '',
+      supplierType: 'farmer',
+      contractedQuantity: 20,
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      pricingTerms: '',
+      paymentTerms: '',
+      fulfillmentPercentage: 0,
+      status: 'draft',
+      notes: '',
+      contractImage: null,
+    });
+    setSelectedFile(null);
+    setPreviewImage(null);
+    setEditingContract(null);
   };
 
   // Handle edit
@@ -255,7 +176,9 @@ export default function Contracts() {
       fulfillmentPercentage: contract.fulfillmentPercentage,
       status: contract.status,
       notes: contract.notes || '',
+      contractImage: null,
     });
+    setPreviewImage(contract.contractImageUrl || null);
     setIsDialogOpen(true);
   };
 
@@ -265,12 +188,6 @@ export default function Contracts() {
     setIsViewDialogOpen(true);
   };
 
-  // Handle delete click
-  const handleDeleteClick = (id, supplierName) => {
-    setContractToDelete({ id, supplierName });
-    setIsDeleteDialogOpen(true);
-  };
-
   // Handle delete confirmation
   const handleDeleteConfirm = async () => {
     if (!contractToDelete) return;
@@ -278,7 +195,7 @@ export default function Contracts() {
     try {
       await apiService.contracts.delete(contractToDelete.id);
       toast.success(`Contract with ${contractToDelete.supplierName} deleted successfully`);
-      await fetchContracts(); // Refresh data
+      await fetchContracts();
     } catch (error) {
       console.error('Error deleting contract:', error);
       toast.error('Failed to delete contract');
@@ -288,85 +205,25 @@ export default function Contracts() {
     }
   };
 
-  // Update fulfillment
-  const updateFulfillment = async (id, newPercentage) => {
-    try {
-      await apiService.contracts.updateFulfillment(id, newPercentage);
-      toast.info('Fulfillment updated');
-      await fetchContracts(); // Refresh data
-    } catch (error) {
-      console.error('Error updating fulfillment:', error);
-      toast.error('Failed to update fulfillment');
-    }
-  };
-
   // Get status badge
   const getStatusBadge = (status) => {
-    switch (status) {
-      case 'active':
-        return (
-          <Badge variant="success" className="gap-1">
-            <CheckCircle className="h-3 w-3" />
-            Active
-          </Badge>
-        );
-      case 'completed':
-        return (
-          <Badge variant="secondary" className="gap-1">
-            <TrendingUp className="h-3 w-3" />
-            Completed
-          </Badge>
-        );
-      case 'terminated':
-        return (
-          <Badge variant="destructive" className="gap-1">
-            <AlertTriangle className="h-3 w-3" />
-            Terminated
-          </Badge>
-        );
-      case 'draft':
-        return (
-          <Badge variant="outline" className="gap-1">
-            <Clock className="h-3 w-3" />
-            Draft
-          </Badge>
-        );
-      default:
-        return <Badge>{status}</Badge>;
-    }
+    const badges = {
+      'active': <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Active</span>,
+      'completed': <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 flex items-center gap-1"><TrendingUp className="h-3 w-3" /> Completed</span>,
+      'terminated': <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Terminated</span>,
+      'draft': <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800 flex items-center gap-1"><Clock className="h-3 w-3" /> Draft</span>,
+    };
+    return badges[status] || <span className="px-2 py-1 rounded-full text-xs bg-gray-100">{status}</span>;
   };
-
-  // Empty state component
-  const EmptyState = () => (
-    <div className="text-center py-12">
-      <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
-        <FileText className="h-8 w-8 text-gray-400" />
-      </div>
-      <h3 className="text-lg font-semibold text-gray-700 mb-2">
-        No Contracts Yet
-      </h3>
-      <p className="text-gray-500 mb-6 max-w-md mx-auto">
-        Start managing your supplier relationships by creating your first contract.
-        Track quantities, terms, and fulfillment progress.
-      </p>
-      <Button onClick={() => setIsDialogOpen(true)}>
-        <Plus className="h-4 w-4 mr-2" />
-        Create First Contract
-      </Button>
-    </div>
-  );
 
   // Loading state
   if (loading) {
     return (
-      <DashboardLayout
-        title="Contracts"
-        description="Manage supplier contracts and agreements"
-      >
+      <DashboardLayout title="Contracts" description="Manage supplier contracts and agreements">
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
-            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
-            <p className="mt-4 text-muted-foreground">Loading contracts...</p>
+            <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto" />
+            <p className="mt-4 text-gray-500">Loading contracts...</p>
           </div>
         </div>
       </DashboardLayout>
@@ -374,555 +231,548 @@ export default function Contracts() {
   }
 
   return (
-    <DashboardLayout
-      title="Contracts"
-      description="Manage supplier contracts and agreements"
-    >
+    <DashboardLayout title="Contracts" description="Manage supplier contracts and agreements">
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3 mb-6">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <div className="flex items-center justify-center mb-2">
-                <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
-                <p className="text-2xl font-bold">{stats.activeContracts}</p>
-              </div>
-              <p className="text-sm text-muted-foreground">Active Contracts</p>
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="text-center">
+            <div className="flex items-center justify-center mb-2">
+              <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
+              <p className="text-2xl font-bold">{contracts.filter(c => c.status === 'active').length}</p>
             </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <div className="flex items-center justify-center mb-2">
-                <TrendingUp className="h-5 w-5 text-blue-600 mr-2" />
-                <p className="text-2xl font-bold">{stats.totalContractedQty}</p>
-              </div>
-              <p className="text-sm text-muted-foreground">Total Contracted Qty (tons)</p>
+            <p className="text-sm text-gray-500">Active Contracts</p>
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="text-center">
+            <div className="flex items-center justify-center mb-2">
+              <TrendingUp className="h-5 w-5 text-blue-600 mr-2" />
+              <p className="text-2xl font-bold">
+                {contracts.reduce((sum, contract) => sum + (contract.contractedQuantity || 0), 0)}
+              </p>
             </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <div className="flex items-center justify-center mb-2">
-                <FileCheck className="h-5 w-5 text-amber-600 mr-2" />
-                <p className="text-2xl font-bold">{stats.avgFulfillment}%</p>
-              </div>
-              <p className="text-sm text-muted-foreground">Avg. Fulfillment Rate</p>
+            <p className="text-sm text-gray-500">Total Contracted Qty (tons)</p>
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="text-center">
+            <div className="flex items-center justify-center mb-2">
+              <FileCheck className="h-5 w-5 text-amber-600 mr-2" />
+              <p className="text-2xl font-bold">
+                {contracts.length > 0 
+                  ? Math.round(contracts.reduce((sum, contract) => sum + (contract.fulfillmentPercentage || 0), 0) / contracts.length)
+                  : 0}%
+              </p>
             </div>
-          </CardContent>
-        </Card>
+            <p className="text-sm text-gray-500">Avg. Fulfillment Rate</p>
+          </div>
+        </div>
       </div>
 
-      {/* Main Contract Table Card */}
-      <Card className="shadow-card">
-        <CardHeader>
+      {/* Main Content */}
+      <div className="bg-white rounded-lg shadow">
+        <div className="p-6 border-b">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-primary" />
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <FileText className="h-5 w-5 text-blue-600" />
                 Contract Management
-              </CardTitle>
-              <CardDescription>
+              </h2>
+              <p className="text-gray-500">
                 {contracts.length === 0 ? 'No contracts yet' : `${contracts.length} contracts in the system`}
-              </CardDescription>
+              </p>
             </div>
             
-            {/* Add Contract Button with Dialog */}
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button 
-                  size="sm" 
-                  onClick={() => {
-                    setEditingContract(null);
-                    form.reset({
-                      supplierName: '',
-                      supplierType: 'farmer',
-                      contractedQuantity: 20,
-                      startDate: new Date().toISOString().split('T')[0],
-                      endDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                      pricingTerms: '',
-                      paymentTerms: '',
-                      fulfillmentPercentage: 0,
-                      status: 'draft',
-                      notes: '',
-                    });
-                  }}
-                  disabled={submitting}
-                >
-                  {submitting ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Plus className="h-4 w-4 mr-2" />
-                  )}
-                  New Contract
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>
-                    {editingContract ? 'Edit Contract' : 'Create New Contract'}
-                  </DialogTitle>
-                  <DialogDescription>
-                    {editingContract 
-                      ? `Update contract with ${editingContract.supplierName}` 
-                      : 'Create a new supplier contract'
-                    }
-                  </DialogDescription>
-                </DialogHeader>
-                
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Supplier Name */}
-                      <FormField
-                        control={form.control}
-                        name="supplierName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Supplier Name *</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Mary Wanjiku" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      {/* Supplier Type - FIXED: Added this field */}
-                      <FormField
-                        control={form.control}
-                        name="supplierType"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Supplier Type *</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select supplier type" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="farmer">Farmer</SelectItem>
-                                <SelectItem value="aggregator">Aggregator</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {/* Quantity */}
-                      <FormField
-                        control={form.control}
-                        name="contractedQuantity"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Quantity (tons) *</FormLabel>
-                            <FormControl>
-                              <Input type="number" placeholder="20" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      {/* Start Date */}
-                      <FormField
-                        control={form.control}
-                        name="startDate"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Start Date *</FormLabel>
-                            <FormControl>
-                              <Input type="date" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      {/* End Date */}
-                      <FormField
-                        control={form.control}
-                        name="endDate"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>End Date *</FormLabel>
-                            <FormControl>
-                              <Input type="date" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    
-                    {/* Pricing Terms */}
-                    <FormField
-                      control={form.control}
-                      name="pricingTerms"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Pricing Terms *</FormLabel>
-                          <FormControl>
-                            <Input placeholder="KES 26/kg, weekly payments" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    {/* Payment Terms */}
-                    <FormField
-                      control={form.control}
-                      name="paymentTerms"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Payment Terms</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Net 30, bank transfer" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Fulfillment Percentage */}
-                      <FormField
-                        control={form.control}
-                        name="fulfillmentPercentage"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Fulfillment %</FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="number" 
-                                min="0" 
-                                max="100" 
-                                placeholder="0" 
-                                {...field} 
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      {/* Status - FIXED: Added this field */}
-                      <FormField
-                        control={form.control}
-                        name="status"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Status</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select status" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="draft">Draft</SelectItem>
-                                <SelectItem value="active">Active</SelectItem>
-                                <SelectItem value="completed">Completed</SelectItem>
-                                <SelectItem value="terminated">Terminated</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    
-                    {/* Notes */}
-                    <FormField
-                      control={form.control}
-                      name="notes"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Notes</FormLabel>
-                          <FormControl>
-                            <Textarea 
-                              placeholder="Additional notes or terms..." 
-                              className="min-h-[80px]"
-                              {...field} 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <DialogFooter>
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        onClick={() => setIsDialogOpen(false)}
-                        disabled={submitting}
-                      >
-                        Cancel
-                      </Button>
-                      <Button type="submit" disabled={submitting}>
-                        {submitting ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            {editingContract ? 'Updating...' : 'Creating...'}
-                          </>
-                        ) : (
-                          editingContract ? 'Update Contract' : 'Create Contract'
-                        )}
-                      </Button>
-                    </DialogFooter>
-                  </form>
-                </Form>
-              </DialogContent>
-            </Dialog>
+            <button 
+              onClick={() => {
+                resetForm();
+                setIsDialogOpen(true);
+              }}
+              disabled={submitting}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2"
+            >
+              {submitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4" />
+              )}
+              New Contract
+            </button>
           </div>
-        </CardHeader>
-        <CardContent>
+        </div>
+
+        <div className="p-6">
           {contracts.length === 0 ? (
-            <EmptyState />
+            <div className="text-center py-12">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
+                <FileText className="h-8 w-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-700 mb-2">
+                No Contracts Yet
+              </h3>
+              <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                Start managing your supplier relationships by creating your first contract.
+              </p>
+              <button 
+                onClick={() => setIsDialogOpen(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md flex items-center gap-2 mx-auto"
+              >
+                <Plus className="h-4 w-4" />
+                Create First Contract
+              </button>
+            </div>
           ) : (
-            <div className="rounded-lg border overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead>Supplier</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead className="text-center">Qty (tons)</TableHead>
-                    <TableHead>Duration</TableHead>
-                    <TableHead>Pricing Terms</TableHead>
-                    <TableHead>Fulfillment</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supplier</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty (tons)</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pricing Terms</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
                   {contracts.map((contract) => (
-                    <TableRow key={contract.id} className="hover:bg-muted/30 transition-colors">
-                      <TableCell className="font-medium">{contract.supplierName}</TableCell>
-                      <TableCell>
-                        <Badge variant={contract.supplierType === 'farmer' ? 'default' : 'secondary'}>
+                    <tr key={contract.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="font-medium text-gray-900">{contract.supplierName}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 text-xs rounded-full ${contract.supplierType === 'farmer' ? 'bg-green-100 text-green-800' : 'bg-purple-100 text-purple-800'}`}>
                           {contract.supplierType}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center font-medium">
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center font-medium">
                         {contract.contractedQuantity}
-                      </TableCell>
-                      <TableCell>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm">
-                          <div className="flex items-center gap-1 text-muted-foreground">
+                          <div className="flex items-center gap-1 text-gray-500">
                             <Calendar className="h-3 w-3" />
                             {formatDate(contract.startDate, 'MMM dd, yyyy')}
                           </div>
-                          <div className="text-xs text-muted-foreground">
+                          <div className="text-xs text-gray-500">
                             to {formatDate(contract.endDate, 'MMM dd, yyyy')}
                           </div>
                         </div>
-                      </TableCell>
-                      <TableCell className="text-sm max-w-xs">
-                        <div className="flex items-start gap-1">
-                          <DollarSign className="h-3 w-3 mt-0.5 text-muted-foreground" />
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm max-w-xs flex items-start gap-1">
+                          <DollarSign className="h-3 w-3 mt-0.5 text-gray-400" />
                           <span className="line-clamp-2">{contract.pricingTerms}</span>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="w-40 space-y-1">
-                          <div className="flex justify-between text-xs">
-                            <span className="text-muted-foreground">Progress</span>
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">{contract.fulfillmentPercentage}%</span>
-                              <div className="flex gap-0.5">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-5 w-5"
-                                  onClick={() => updateFulfillment(contract.id, Math.max(0, contract.fulfillmentPercentage - 10))}
-                                >
-                                  -
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-5 w-5"
-                                  onClick={() => updateFulfillment(contract.id, Math.min(100, contract.fulfillmentPercentage + 10))}
-                                >
-                                  +
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                          <Progress value={contract.fulfillmentPercentage} className="h-2" />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {getStatusBadge(contract.status)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleView(contract)}
+                            className="text-blue-600 hover:text-blue-900"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleEdit(contract)}
+                            className="text-gray-600 hover:text-gray-900"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setContractToDelete({ id: contract.id, supplierName: contract.supplierName });
+                              setIsDeleteDialogOpen(true);
+                            }}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
                         </div>
-                      </TableCell>
-                      <TableCell>{getStatusBadge(contract.status)}</TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem onClick={() => handleView(contract)}>
-                              <Eye className="h-4 w-4 mr-2" />
-                              View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleEdit(contract)}>
-                              <Edit className="h-4 w-4 mr-2" />
-                              Edit Contract
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem 
-                              onClick={() => handleDeleteClick(contract.id, contract.supplierName)}
-                              className="text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete Contract
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   ))}
-                </TableBody>
-              </Table>
+                </tbody>
+              </table>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
+
+      {/* Create/Edit Contract Dialog */}
+      {isDialogOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">
+                  {editingContract ? 'Edit Contract' : 'Create New Contract'}
+                </h3>
+                <button
+                  onClick={() => {
+                    setIsDialogOpen(false);
+                    resetForm();
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                {/* Supplier Name and Type */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Supplier Name *
+                    </label>
+                    <input
+                      type="text"
+                      {...form.register('supplierName')}
+                      placeholder="Mary Wanjiku"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    {form.formState.errors.supplierName && (
+                      <p className="text-red-500 text-xs mt-1">{form.formState.errors.supplierName.message}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Supplier Type *
+                    </label>
+                    <select
+                      {...form.register('supplierType')}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="farmer">Farmer</option>
+                      <option value="aggregator">Aggregator</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Quantity and Dates */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Quantity (tons) *
+                    </label>
+                    <input
+                      type="number"
+                      {...form.register('contractedQuantity')}
+                      placeholder="20"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Start Date *
+                    </label>
+                    <input
+                      type="date"
+                      {...form.register('startDate')}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      End Date *
+                    </label>
+                    <input
+                      type="date"
+                      {...form.register('endDate')}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Pricing Terms */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Pricing Terms *
+                  </label>
+                  <input
+                    type="text"
+                    {...form.register('pricingTerms')}
+                    placeholder="KES 26/kg, weekly payments"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Payment Terms */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Payment Terms
+                  </label>
+                  <input
+                    type="text"
+                    {...form.register('paymentTerms')}
+                    placeholder="Net 30, bank transfer"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Fulfillment and Status */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Fulfillment %
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      {...form.register('fulfillmentPercentage')}
+                      placeholder="0"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Status
+                    </label>
+                    <select
+                      {...form.register('status')}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="draft">Draft</option>
+                      <option value="active">Active</option>
+                      <option value="completed">Completed</option>
+                      <option value="terminated">Terminated</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Contract Image Upload */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Contract Document/Image
+                  </label>
+                  <div className="mt-1 flex items-center">
+                    <label className="cursor-pointer bg-white py-2 px-3 border border-gray-300 rounded-md shadow-sm text-sm leading-4 font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                      <Upload className="h-4 w-4 inline mr-2" />
+                      Choose File
+                      <input
+                        type="file"
+                        accept="image/*,.pdf,.doc,.docx"
+                        onChange={handleFileChange}
+                        className="sr-only"
+                      />
+                    </label>
+                    {selectedFile && (
+                      <span className="ml-3 text-sm text-gray-500">{selectedFile.name}</span>
+                    )}
+                  </div>
+                  {previewImage && (
+                    <div className="mt-2">
+                      <img
+                        src={previewImage}
+                        alt="Contract preview"
+                        className="h-32 w-auto object-cover rounded border"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Notes
+                  </label>
+                  <textarea
+                    {...form.register('notes')}
+                    placeholder="Additional notes or terms..."
+                    rows="3"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Form Actions */}
+                <div className="flex justify-end gap-3 pt-4 border-t">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsDialogOpen(false);
+                      resetForm();
+                    }}
+                    disabled={submitting}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 flex items-center gap-2"
+                  >
+                    {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {editingContract ? 'Update Contract' : 'Create Contract'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* View Contract Dialog */}
-      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          {viewingContract && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <FileCheck className="h-5 w-5 text-primary" />
+      {isViewDialogOpen && viewingContract && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <FileCheck className="h-5 w-5 text-blue-600" />
                   Contract Details
-                </DialogTitle>
-                <DialogDescription>
-                  Contract with {viewingContract.supplierName}
-                </DialogDescription>
-              </DialogHeader>
-              
+                </h3>
+                <button
+                  onClick={() => setIsViewDialogOpen(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              </div>
+
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <h4 className="text-sm font-medium text-muted-foreground">Supplier</h4>
-                    <p className="text-lg font-semibold">{viewingContract.supplierName}</p>
+                    <p className="text-sm text-gray-500">Supplier</p>
+                    <p className="font-semibold">{viewingContract.supplierName}</p>
                   </div>
                   <div>
-                    <h4 className="text-sm font-medium text-muted-foreground">Type</h4>
-                    <Badge variant={viewingContract.supplierType === 'farmer' ? 'default' : 'secondary'}>
+                    <p className="text-sm text-gray-500">Type</p>
+                    <span className={`px-2 py-1 text-xs rounded-full ${viewingContract.supplierType === 'farmer' ? 'bg-green-100 text-green-800' : 'bg-purple-100 text-purple-800'}`}>
                       {viewingContract.supplierType}
-                    </Badge>
+                    </span>
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <h4 className="text-sm font-medium text-muted-foreground">Quantity</h4>
-                    <p className="text-lg font-semibold">{viewingContract.contractedQuantity} tons</p>
+                    <p className="text-sm text-gray-500">Quantity</p>
+                    <p className="font-semibold">{viewingContract.contractedQuantity} tons</p>
                   </div>
                   <div>
-                    <h4 className="text-sm font-medium text-muted-foreground">Status</h4>
+                    <p className="text-sm text-gray-500">Status</p>
                     {getStatusBadge(viewingContract.status)}
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <h4 className="text-sm font-medium text-muted-foreground">Start Date</h4>
+                    <p className="text-sm text-gray-500">Start Date</p>
                     <p>{formatDate(viewingContract.startDate, 'PPP')}</p>
                   </div>
                   <div>
-                    <h4 className="text-sm font-medium text-muted-foreground">End Date</h4>
+                    <p className="text-sm text-gray-500">End Date</p>
                     <p>{formatDate(viewingContract.endDate, 'PPP')}</p>
                   </div>
                 </div>
-                
+
                 <div>
-                  <h4 className="text-sm font-medium text-muted-foreground">Pricing Terms</h4>
-                  <p className="text-sm">{viewingContract.pricingTerms}</p>
+                  <p className="text-sm text-gray-500">Pricing Terms</p>
+                  <p>{viewingContract.pricingTerms}</p>
                 </div>
-                
+
                 {viewingContract.paymentTerms && (
                   <div>
-                    <h4 className="text-sm font-medium text-muted-foreground">Payment Terms</h4>
-                    <p className="text-sm">{viewingContract.paymentTerms}</p>
+                    <p className="text-sm text-gray-500">Payment Terms</p>
+                    <p>{viewingContract.paymentTerms}</p>
                   </div>
                 )}
-                
+
                 <div>
-                  <h4 className="text-sm font-medium text-muted-foreground">Fulfillment Progress</h4>
-                  <div className="mt-2 space-y-2">
-                    <div className="flex justify-between text-sm">
+                  <p className="text-sm text-gray-500">Fulfillment Progress</p>
+                  <div className="mt-2">
+                    <div className="flex justify-between text-sm mb-1">
                       <span>Progress</span>
                       <span className="font-medium">{viewingContract.fulfillmentPercentage}%</span>
                     </div>
-                    <Progress value={viewingContract.fulfillmentPercentage} className="h-2" />
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-blue-600 h-2 rounded-full" 
+                        style={{ width: `${viewingContract.fulfillmentPercentage}%` }}
+                      />
+                    </div>
                   </div>
                 </div>
-                
-                {viewingContract.notes && (
+
+                {viewingContract.contractImageUrl && (
                   <div>
-                    <h4 className="text-sm font-medium text-muted-foreground">Notes</h4>
-                    <p className="text-sm text-muted-foreground">{viewingContract.notes}</p>
+                    <p className="text-sm text-gray-500">Contract Document</p>
+                    <img 
+                      src={viewingContract.contractImageUrl} 
+                      alt="Contract document" 
+                      className="mt-2 h-32 w-auto rounded border"
+                    />
                   </div>
                 )}
-                
-                {viewingContract.createdAt && (
-                  <div className="pt-4 border-t text-xs text-muted-foreground">
-                    Created: {formatDate(viewingContract.createdAt, 'PPP pp')}
+
+                {viewingContract.notes && (
+                  <div>
+                    <p className="text-sm text-gray-500">Notes</p>
+                    <p className="text-gray-600">{viewingContract.notes}</p>
                   </div>
                 )}
               </div>
-              
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
+
+              <div className="flex justify-end gap-3 pt-4 border-t mt-4">
+                <button
+                  onClick={() => setIsViewDialogOpen(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
                   Close
-                </Button>
-                <Button onClick={() => {
-                  setIsViewDialogOpen(false);
-                  handleEdit(viewingContract);
-                }}>
+                </button>
+                <button
+                  onClick={() => {
+                    setIsViewDialogOpen(false);
+                    handleEdit(viewingContract);
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700"
+                >
                   Edit Contract
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Contract</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete the contract with "{contractToDelete?.supplierName}"? 
-              This action cannot be undone and all associated data will be removed.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteConfirm}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {isDeleteDialogOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Contract</h3>
+              <p className="text-gray-500 mb-6">
+                Are you sure you want to delete the contract with "{contractToDelete?.supplierName}"? 
+                This action cannot be undone.
+              </p>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setIsDeleteDialogOpen(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteConfirm}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }
