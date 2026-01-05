@@ -42,7 +42,9 @@ import {
   Trash2,
   CheckCircle,
   Calendar,
-  Sprout
+  Sprout,
+  Phone,
+  Mail
 } from 'lucide-react';
 import { apiService } from '@/api/services';
 import { toast } from 'sonner';
@@ -67,7 +69,9 @@ export default function Farmers() {
     estimatedYield: '',
     plantingDate: '',
     harvestEstimation: '',
-    contact: ''
+    contact: '',
+    email: '',
+    phone: ''
   });
 
   // Fetch farmers
@@ -94,7 +98,9 @@ export default function Farmers() {
     (farmer) =>
       farmer.name?.toLowerCase().includes(search.toLowerCase()) ||
       farmer.county?.toLowerCase().includes(search.toLowerCase()) ||
-      farmer.contact?.includes(search)
+      farmer.contact?.includes(search) ||
+      farmer.phone?.includes(search) ||
+      farmer.email?.includes(search)
   );
 
   // Handle form input changes
@@ -129,7 +135,9 @@ export default function Farmers() {
       estimatedYield: '',
       plantingDate: '',
       harvestEstimation: '',
-      contact: ''
+      contact: '',
+      email: '',
+      phone: ''
     });
     setSelectedFarmer(null);
   };
@@ -173,6 +181,12 @@ export default function Farmers() {
             end: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString() 
           };
 
+      // Create contact string from phone and email
+      const contactInfo = [];
+      if (formData.phone) contactInfo.push(`Phone: ${formData.phone}`);
+      if (formData.email) contactInfo.push(`Email: ${formData.email}`);
+      const contactString = contactInfo.join(' | ');
+
       const newFarmer = {
         name: formData.name.trim(),
         gender: formData.gender,
@@ -185,17 +199,21 @@ export default function Farmers() {
         estimatedYield: parseFloat(formData.estimatedYield) || 0,
         plantingDate: formData.plantingDate || null,
         harvestEstimation: formData.harvestEstimation.trim(),
-        contact: formData.contact.trim(),
+        contact: contactString || '',
+        phone: formData.phone.trim() || '',
+        email: formData.email.trim() || '',
         harvestWindowStart: harvestWindow.start,
         harvestWindowEnd: harvestWindow.end,
-        status: 'active'
+        status: 'active',
+        isAvailableForSupply: true, // IMPORTANT: This flag makes farmer available for supply planning
+        contractNumber: `CONTRACT-${Date.now().toString().slice(-6)}` // Auto-generate contract number
       };
 
       // Call API to create farmer
       const createdFarmer = await apiService.farmers.create(newFarmer);
       
       if (createdFarmer) {
-        toast.success('Farmer added successfully');
+        toast.success('Farmer added successfully! This farmer can now be selected in Supply Planning.');
         setIsAddDialogOpen(false);
         resetForm();
         fetchFarmers(); // Refresh list
@@ -221,6 +239,12 @@ export default function Farmers() {
         return;
       }
 
+      // Create contact string
+      const contactInfo = [];
+      if (formData.phone) contactInfo.push(`Phone: ${formData.phone}`);
+      if (formData.email) contactInfo.push(`Email: ${formData.email}`);
+      const contactString = contactInfo.join(' | ');
+
       const updatedFarmer = {
         name: formData.name.trim(),
         gender: formData.gender,
@@ -233,8 +257,11 @@ export default function Farmers() {
         estimatedYield: parseFloat(formData.estimatedYield) || 0,
         plantingDate: formData.plantingDate || null,
         harvestEstimation: formData.harvestEstimation.trim(),
-        contact: formData.contact.trim(),
-        id: selectedFarmer.id
+        contact: contactString || '',
+        phone: formData.phone.trim() || '',
+        email: formData.email.trim() || '',
+        id: selectedFarmer.id,
+        isAvailableForSupply: true // Ensure farmer stays available
       };
 
       // Update harvest window if planting date changed
@@ -282,6 +309,17 @@ export default function Farmers() {
   // Open edit dialog
   const openEditDialog = (farmer) => {
     setSelectedFarmer(farmer);
+    
+    // Extract phone and email from contact string
+    let phone = '';
+    let email = '';
+    if (farmer.contact) {
+      const phoneMatch = farmer.contact.match(/Phone:\s*([^|]+)/);
+      const emailMatch = farmer.contact.match(/Email:\s*([^|]+)/);
+      if (phoneMatch) phone = phoneMatch[1].trim();
+      if (emailMatch) email = emailMatch[1].trim();
+    }
+    
     setFormData({
       name: farmer.name || '',
       gender: farmer.gender || 'male',
@@ -294,7 +332,9 @@ export default function Farmers() {
       estimatedYield: farmer.estimatedYield?.toString() || '',
       plantingDate: farmer.plantingDate ? farmer.plantingDate.split('T')[0] : '',
       harvestEstimation: farmer.harvestEstimation || '',
-      contact: farmer.contact || ''
+      contact: farmer.contact || '',
+      phone: farmer.phone || phone,
+      email: farmer.email || email
     });
     setIsEditDialogOpen(true);
   };
@@ -303,6 +343,26 @@ export default function Farmers() {
   const openDeleteDialog = (farmer) => {
     setSelectedFarmer(farmer);
     setIsDeleteDialogOpen(true);
+  };
+
+  // Get contact icon and info
+  const getContactInfo = (farmer) => {
+    const items = [];
+    if (farmer.phone) {
+      items.push({
+        icon: <Phone className="h-3 w-3" />,
+        text: farmer.phone,
+        type: 'phone'
+      });
+    }
+    if (farmer.email) {
+      items.push({
+        icon: <Mail className="h-3 w-3" />,
+        text: farmer.email,
+        type: 'email'
+      });
+    }
+    return items;
   };
 
   // Empty state component
@@ -316,7 +376,7 @@ export default function Farmers() {
       </h3>
       <p className="text-gray-500 mb-6 max-w-md mx-auto">
         Start building your supply chain by adding your first contracted farmer.
-        Track their details, crops, and harvest information.
+        Farmers added here will be available in <strong>Supply Planning</strong> for scheduling.
       </p>
       <Button onClick={() => setIsAddDialogOpen(true)}>
         <Plus className="h-4 w-4 mr-2" />
@@ -330,7 +390,7 @@ export default function Farmers() {
     return (
       <DashboardLayout
         title="Farmer Management"
-        description="View and manage contracted farmers"
+        description="View and manage contracted farmers. These farmers will be available for supply planning."
       >
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
@@ -345,7 +405,7 @@ export default function Farmers() {
   return (
     <DashboardLayout
       title="Farmer Management"
-      description="View and manage contracted farmers"
+      description="View and manage contracted farmers. These farmers will be available for supply planning."
     >
       <Card className="shadow-card">
         <CardHeader>
@@ -356,7 +416,7 @@ export default function Farmers() {
                 Contracted Farmers
               </CardTitle>
               <CardDescription>
-                {farmers.length === 0 ? 'No farmers yet' : `${filteredFarmers.length} farmers currently contracted`}
+                {farmers.length === 0 ? 'No farmers yet' : `${filteredFarmers.length} farmers available for supply planning`}
               </CardDescription>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
@@ -381,7 +441,7 @@ export default function Farmers() {
                   <DialogHeader className="px-6 pt-6 pb-4 border-b">
                     <DialogTitle>Add New Farmer</DialogTitle>
                     <DialogDescription>
-                      Enter the farmer's details below. Click save when you're done.
+                      Enter the farmer's details below. This farmer will be available in Supply Planning.
                     </DialogDescription>
                   </DialogHeader>
                   
@@ -397,6 +457,7 @@ export default function Farmers() {
                             value={formData.name}
                             onChange={handleInputChange}
                             placeholder="John Doe"
+                            required
                           />
                         </div>
                         <div className="space-y-2">
@@ -441,6 +502,7 @@ export default function Farmers() {
                             value={formData.county}
                             onChange={handleInputChange}
                             placeholder="e.g., Nakuru"
+                            required
                           />
                         </div>
                         <div className="space-y-2">
@@ -533,16 +595,41 @@ export default function Farmers() {
                         </div>
                       </div>
 
-                      {/* Contact */}
+                      {/* Contact Information - IMPORTANT FOR PROCUREMENT */}
                       <div className="space-y-2">
-                        <Label htmlFor="contact">Contact</Label>
+                        <Label htmlFor="phone" className="flex items-center gap-1">
+                          <Phone className="h-3 w-3" />
+                          Phone Number *
+                        </Label>
                         <Input
-                          id="contact"
-                          name="contact"
-                          value={formData.contact}
+                          id="phone"
+                          name="phone"
+                          value={formData.phone}
                           onChange={handleInputChange}
-                          placeholder="Phone or email"
+                          placeholder="e.g., +254712345678"
+                          required
                         />
+                        <p className="text-xs text-muted-foreground">
+                          Required for WhatsApp and Call buttons in Procurement
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="email" className="flex items-center gap-1">
+                          <Mail className="h-3 w-3" />
+                          Email Address
+                        </Label>
+                        <Input
+                          id="email"
+                          name="email"
+                          type="email"
+                          value={formData.email}
+                          onChange={handleInputChange}
+                          placeholder="e.g., farmer@example.com"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Required for Email button in Procurement
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -575,107 +662,127 @@ export default function Farmers() {
                   <TableHeader>
                     <TableRow className="bg-muted/50">
                       <TableHead>Farmer</TableHead>
+                      <TableHead>Contact</TableHead>
                       <TableHead>Gender/Age</TableHead>
                       <TableHead>Location</TableHead>
                       <TableHead>Crop</TableHead>
                       <TableHead className="text-center">Acreage</TableHead>
                       <TableHead className="text-center">Est. Yield</TableHead>
-                      <TableHead>Planting Date</TableHead>
-                      <TableHead>Harvest Est.</TableHead>
                       <TableHead>Harvest Window</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredFarmers.map((farmer) => (
-                      <TableRow key={farmer.id} className="hover:bg-muted/30 transition-colors">
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">{farmer.name}</p>
-                            {farmer.contact && (
-                              <p className="text-xs text-muted-foreground">{farmer.contact}</p>
+                    {filteredFarmers.map((farmer) => {
+                      const contactInfo = getContactInfo(farmer);
+                      return (
+                        <TableRow key={farmer.id} className="hover:bg-muted/30 transition-colors">
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{farmer.name}</p>
+                              {farmer.contractNumber && (
+                                <p className="text-xs text-muted-foreground">
+                                  Contract: {farmer.contractNumber}
+                                </p>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              {contactInfo.length > 0 ? (
+                                contactInfo.map((info, index) => (
+                                  <div key={index} className="flex items-center gap-1 text-sm">
+                                    {info.icon}
+                                    <span className={info.type === 'phone' ? 'text-blue-600' : 'text-green-600'}>
+                                      {info.text}
+                                    </span>
+                                  </div>
+                                ))
+                              ) : (
+                                <span className="text-sm text-muted-foreground">No contact info</span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col gap-1">
+                              <Badge variant="outline" className="capitalize w-fit">
+                                {farmer.gender}
+                              </Badge>
+                              <span className="text-sm">{farmer.ageGroup}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <MapPin className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-sm">
+                                {farmer.county}
+                                {farmer.ward && `, ${farmer.ward}`}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {farmer.crop ? (
+                              <Badge variant="farmer">
+                                {farmer.crop}
+                                {farmer.variety && ` - ${farmer.variety}`}
+                              </Badge>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">Not specified</span>
                             )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col gap-1">
-                            <Badge variant="outline" className="capitalize w-fit">
-                              {farmer.gender}
-                            </Badge>
-                            <span className="text-sm">{farmer.ageGroup}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <MapPin className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-sm">
-                              {farmer.county}
-                              {farmer.ward && `, ${farmer.ward}`}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {farmer.crop ? (
-                            <Badge variant="farmer">
-                              {farmer.crop}
-                              {farmer.variety && ` - ${farmer.variety}`}
-                            </Badge>
-                          ) : (
-                            <span className="text-sm text-muted-foreground">Not specified</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-center font-medium">
-                          {farmer.acreage || 0} acres
-                        </TableCell>
-                        <TableCell className="text-center font-medium">
-                          {farmer.estimatedYield || 0} tons
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-sm">
-                            {formatDate(farmer.plantingDate)}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-sm">
-                            {farmer.harvestEstimation || 'Not specified'}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          {farmer.harvestWindowStart ? (
-                            <span className="text-sm">
-                              {new Date(farmer.harvestWindowStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                              {' - '}
-                              {new Date(farmer.harvestWindowEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                            </span>
-                          ) : (
-                            <span className="text-sm text-muted-foreground">Not set</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="success">Active</Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openEditDialog(farmer)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openDeleteDialog(farmer)}
-                              className="text-red-500 hover:text-red-700"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                          </TableCell>
+                          <TableCell className="text-center font-medium">
+                            {farmer.acreage || 0} acres
+                          </TableCell>
+                          <TableCell className="text-center font-medium">
+                            {farmer.estimatedYield || 0} tons
+                          </TableCell>
+                          <TableCell>
+                            {farmer.harvestWindowStart ? (
+                              <div className="text-sm">
+                                <div className="flex items-center gap-1">
+                                  <Calendar className="h-3 w-3 text-muted-foreground" />
+                                  <span>
+                                    {new Date(farmer.harvestWindowStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                    {' - '}
+                                    {new Date(farmer.harvestWindowEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                  </span>
+                                </div>
+                                {farmer.harvestEstimation && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {farmer.harvestEstimation}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">Not set</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="success">Active</Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openEditDialog(farmer)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openDeleteDialog(farmer)}
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
@@ -703,7 +810,7 @@ export default function Farmers() {
           <DialogHeader className="px-6 pt-6 pb-4 border-b">
             <DialogTitle>Edit Farmer</DialogTitle>
             <DialogDescription>
-              Update the farmer's details below.
+              Update the farmer's details below. Changes will reflect in Supply Planning and Procurement.
             </DialogDescription>
           </DialogHeader>
           
@@ -855,15 +962,34 @@ export default function Farmers() {
                 </div>
               </div>
 
-              {/* Contact */}
+              {/* Contact Information */}
               <div className="space-y-2">
-                <Label htmlFor="edit-contact">Contact</Label>
+                <Label htmlFor="edit-phone" className="flex items-center gap-1">
+                  <Phone className="h-3 w-3" />
+                  Phone Number *
+                </Label>
                 <Input
-                  id="edit-contact"
-                  name="contact"
-                  value={formData.contact}
+                  id="edit-phone"
+                  name="phone"
+                  value={formData.phone}
                   onChange={handleInputChange}
-                  placeholder="Phone or email"
+                  placeholder="e.g., +254712345678"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-email" className="flex items-center gap-1">
+                  <Mail className="h-3 w-3" />
+                  Email Address
+                </Label>
+                <Input
+                  id="edit-email"
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  placeholder="e.g., farmer@example.com"
                 />
               </div>
             </div>
@@ -890,7 +1016,12 @@ export default function Farmers() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Farmer</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete {selectedFarmer?.name}? This action cannot be undone and will remove all associated data.
+              Are you sure you want to delete {selectedFarmer?.name}? This action will:
+              <ul className="list-disc pl-5 mt-2 space-y-1">
+                <li>Remove farmer from Supply Planning</li>
+                <li>Remove any scheduled allocations</li>
+                <li>Affect Procurement orders with this farmer</li>
+              </ul>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -899,7 +1030,7 @@ export default function Farmers() {
               onClick={handleDeleteFarmer}
               className="bg-red-600 hover:bg-red-700"
             >
-              Delete
+              Delete Farmer
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
