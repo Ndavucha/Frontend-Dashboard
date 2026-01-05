@@ -33,13 +33,19 @@ export const API_CONFIG = {
     // Crops
     CROPS: '/api/crops',
     
+    // Supply Planning - ADD THESE ENDPOINTS
+    SUPPLY_ALLOCATIONS: '/api/supply/allocations',
+    SUPPLY_PLAN: '/api/supply/plan',
+    FARMER_AVAILABILITY: '/api/supply/farmer-availability',
+    HARVEST_CALENDAR: '/api/supply/harvest-calendar',
+    
     // Procurement
     PROCUREMENT_ORDERS: '/api/procurement/orders',
     DEMAND_FORECAST: '/api/procurement/demand-forecast',
     SUPPLY_RECONCILIATION: '/api/procurement/supply-reconciliation',
     HARVEST_READINESS: '/api/procurement/harvest-readiness',
     
-    // Aggregators - CRITICAL: Add these endpoints
+    // Aggregators
     AGGREGATORS: '/api/aggregators',
     AGGREGATOR_DETAIL: (id) => `/api/aggregators/${id}`,
     AGGREGATORS_STATS: '/api/aggregators-stats',
