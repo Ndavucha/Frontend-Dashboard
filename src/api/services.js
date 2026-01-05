@@ -54,6 +54,26 @@ const authApi = {
   },
 };
 
+// ====================== SUPPLY PLANNING API ======================
+const supplyApi = {
+  // Allocations
+  getAllocations: (params = {}) => api.get(API_CONFIG.ENDPOINTS.SUPPLY_ALLOCATIONS, { params }),
+  getAllocationById: (id) => api.get(`${API_CONFIG.ENDPOINTS.SUPPLY_ALLOCATIONS}/${id}`),
+  createAllocation: (allocationData) => api.post(API_CONFIG.ENDPOINTS.SUPPLY_ALLOCATIONS, allocationData),
+  updateAllocation: (id, allocationData) => api.put(`${API_CONFIG.ENDPOINTS.SUPPLY_ALLOCATIONS}/${id}`, allocationData),
+  deleteAllocation: (id) => api.delete(`${API_CONFIG.ENDPOINTS.SUPPLY_ALLOCATIONS}/${id}`),
+  
+  // Supply Planning
+  getSupplyPlan: (period = 'month') => api.get(API_CONFIG.ENDPOINTS.SUPPLY_PLAN, { params: { period } }),
+  createSupplyPlan: (planData) => api.post(API_CONFIG.ENDPOINTS.SUPPLY_PLAN, planData),
+  updateSupplyPlan: (id, planData) => api.put(`${API_CONFIG.ENDPOINTS.SUPPLY_PLAN}/${id}`, planData),
+  
+  // Availability
+  getFarmerAvailability: () => api.get(API_CONFIG.ENDPOINTS.FARMER_AVAILABILITY),
+  getHarvestCalendar: (startDate, endDate) => 
+    api.get(API_CONFIG.ENDPOINTS.HARVEST_CALENDAR, { params: { start_date: startDate, end_date: endDate } }),
+};
+
 // ====================== ANALYTICS API ======================
 const analyticsApi = {
   getOverviewStats: () => api.get(API_CONFIG.ENDPOINTS.OVERVIEW_STATS),
@@ -141,6 +161,7 @@ export const apiService = {
   farmers: farmersApi,
   crops: cropsApi,
   procurement: procurementApi,
+  supply: supplyApi,  // ← CRITICAL: Added supply service
   notifications: notificationsApi,
   aggregators: aggregatorsApi,
   contracts: contractsApi,
