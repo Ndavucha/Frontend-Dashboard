@@ -1,4 +1,4 @@
-// src/pages/Procurement.jsx - FIXED VERSION
+// src/pages/Procurement.jsx
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -237,11 +237,11 @@ export default function Procurement() {
 
   const stats = calculateStats();
 
-  // SIMPLIFIED: Get farmers with scheduled supply allocations
+  // Get farmers with scheduled supply allocations
   const getFarmersWithAllocations = () => {
-    console.log('=== getFarmersWithAllocations() called ===');
-    console.log('Farmers count:', farmers.length);
-    console.log('Allocations count:', supplyAllocations.length);
+    console.log('=== DEBUG: getFarmersWithAllocations START ===');
+    console.log('Farmers:', farmers);
+    console.log('Allocations:', supplyAllocations);
     
     if (!supplyAllocations?.length || !farmers?.length) {
       console.log('No data available');
@@ -250,16 +250,21 @@ export default function Procurement() {
 
     // Filter allocations with status 'scheduled'
     const scheduledAllocations = supplyAllocations.filter(a => a?.status === 'scheduled');
-    console.log('Scheduled allocations:', scheduledAllocations.length);
+    console.log('Scheduled allocations:', scheduledAllocations);
     
     // Get unique farmer IDs from scheduled allocations
     const farmerIds = [...new Set(scheduledAllocations.map(a => a?.farmerId))];
     console.log('Farmer IDs with scheduled allocations:', farmerIds);
     
     // Filter farmers who have scheduled allocations
-    const result = farmers.filter(farmer => 
+    const farmersWithAllocations = farmers.filter(farmer => 
       farmerIds.includes(farmer?.id)
-    ).map(farmer => {
+    );
+    
+    console.log('Farmers with allocations:', farmersWithAllocations);
+    
+    // Add allocations to each farmer
+    const result = farmersWithAllocations.map(farmer => {
       const allocations = scheduledAllocations.filter(a => a?.farmerId === farmer?.id);
       return {
         ...farmer,
@@ -267,9 +272,8 @@ export default function Procurement() {
       };
     });
     
-    console.log('Result farmers with allocations:', result.length);
-    console.log('Result details:', result);
-    console.log('===========================================');
+    console.log('Final result:', result);
+    console.log('=== DEBUG: getFarmersWithAllocations END ===');
     
     return result;
   };
@@ -280,7 +284,7 @@ export default function Procurement() {
     setStep1Form(prev => ({ ...prev, [name]: value }));
   };
 
-  // Handle Step 1 select changes - SIMPLIFIED AND FIXED
+  // Handle Step 1 select changes
   const handleStep1SelectChange = (name, value) => {
     console.log('📝 Select change:', name, value);
     setStep1Form(prev => ({ ...prev, [name]: value }));
@@ -322,8 +326,8 @@ export default function Procurement() {
         setStep1Form(prev => ({
           ...prev,
           supplierName: farmer.name || '',
-          supplierContact: farmer.contact || '', // Contact person name
-          supplierPhone: farmer.phone || '', // Phone number
+          supplierContact: farmer.name || '', // Use farmer name as contact
+          supplierPhone: farmer.phone || '',
           supplierEmail: farmer.email || '',
           isContracted: 'yes',
           cropName: farmer.crop || '',
@@ -1123,7 +1127,7 @@ Procurement Team`;
                             )}
                           </div>
 
-                          {/* Farmer Selection */}
+                          {/* Farmer Selection - SIMPLIFIED AND FIXED */}
                           {step1Form.supplierType === 'farmer' && (
                             <>
                               <div className="space-y-2">
@@ -1150,6 +1154,34 @@ Procurement Team`;
                                       {getFarmersWithAllocations().length}
                                     </span>
                                   </div>
+                                  
+                                  {/* TEST: Show the actual farmer data */}
+                                  {getFarmersWithAllocations().length > 0 && (
+                                    <div className="mt-2 p-2 bg-green-50 rounded border border-green-200">
+                                      <div className="font-medium text-green-700">✅ Farmer found in data:</div>
+                                      <div className="text-xs text-green-600">
+                                        ID: {getFarmersWithAllocations()[0].id}<br/>
+                                        Name: {getFarmersWithAllocations()[0].name}<br/>
+                                        Crop: {getFarmersWithAllocations()[0].crop}<br/>
+                                        Phone: {getFarmersWithAllocations()[0].phone}<br/>
+                                        Allocations: {getFarmersWithAllocations()[0].allocations?.length || 0}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                                
+                                {/* TEMPORARY TEST: Render a simple div to see if farmers are available */}
+                                <div className="p-2 bg-yellow-50 border border-yellow-200 rounded mb-2">
+                                  <p className="text-sm font-medium">Available Farmers (for testing):</p>
+                                  {getFarmersWithAllocations().length === 0 ? (
+                                    <div className="text-sm text-red-600">❌ No farmers found</div>
+                                  ) : (
+                                    getFarmersWithAllocations().map(farmer => (
+                                      <div key={farmer.id} className="text-sm">
+                                        ✅ {farmer.name} (ID: {farmer.id}) - Crop: {farmer.crop}
+                                      </div>
+                                    ))
+                                  )}
                                 </div>
                                 
                                 <select
@@ -1170,13 +1202,19 @@ Procurement Team`;
                                     </option>
                                   ) : (
                                     getFarmersWithAllocations().map(farmer => {
-                                      console.log('Rendering option for farmer:', farmer);
+                                      console.log('Rendering option for farmer:', {
+                                        id: farmer.id,
+                                        name: farmer.name,
+                                        crop: farmer.crop,
+                                        hasCrop: !!farmer.crop,
+                                        allocationsCount: farmer.allocations?.length || 0
+                                      });
                                       return (
                                         <option key={farmer.id} value={farmer.id}>
                                           🌾 {farmer.name || 'Unnamed Farmer'} 
-                                          {farmer.crop && ` | ${farmer.crop}`}
-                                          {farmer.county && ` | ${farmer.county}`}
-                                          {farmer.allocations?.length > 0 && ` | ${farmer.allocations.length} scheduled`}
+                                          {farmer.crop ? ` | ${farmer.crop}` : ''}
+                                          {farmer.county ? ` | ${farmer.county}` : ''}
+                                          {farmer.allocations?.length > 0 ? ` | ${farmer.allocations.length} scheduled` : ''}
                                         </option>
                                       );
                                     })
