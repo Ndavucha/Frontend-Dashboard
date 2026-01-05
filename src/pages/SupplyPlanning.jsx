@@ -118,6 +118,12 @@ export default function SupplyPlanning() {
     }));
   };
 
+  // SIMPLER VERSION: Get all farmers for dropdown (no filtering by date)
+  const getAvailableFarmers = () => {
+    // Return ALL farmers for simplicity
+    return farmers;
+  };
+
   // Submit new allocation to backend
   const handleAllocationSubmit = async () => {
     try {
@@ -344,21 +350,6 @@ export default function SupplyPlanning() {
     }
   };
 
-  // Filter available farmers for the selected date
-  const getAvailableFarmers = () => {
-    // Get farmers already allocated for the selected date
-    const allocatedFarmerIds = allocations
-      .filter(allocation => {
-        const allocationDate = new Date(allocation.date).toDateString();
-        const selectedDateStr = selectedDate.toDateString();
-        return allocationDate === selectedDateStr;
-      })
-      .map(allocation => allocation.farmerId);
-
-    // Return farmers not allocated for this date
-    return farmers.filter(farmer => !allocatedFarmerIds.includes(farmer.id));
-  };
-
   // Group allocations by date for display
   const getGroupedAllocations = () => {
     const grouped = {};
@@ -527,8 +518,8 @@ export default function SupplyPlanning() {
                             <SelectValue placeholder="Choose a farmer" />
                           </SelectTrigger>
                           <SelectContent>
-                            {availableFarmers.length > 0 ? (
-                              availableFarmers.map(farmer => (
+                            {farmers.length > 0 ? (
+                              farmers.map(farmer => (
                                 <SelectItem key={farmer.id} value={farmer.id.toString()}>
                                   <div className="flex flex-col">
                                     <span className="font-medium">{farmer.name}</span>
@@ -541,9 +532,7 @@ export default function SupplyPlanning() {
                             ) : (
                               <div className="p-2 text-center">
                                 <p className="text-sm text-muted-foreground">
-                                  {farmers.length === 0 
-                                    ? 'No farmers available. Add farmers first.' 
-                                    : 'All farmers already allocated for this date.'}
+                                  No farmers available. Add farmers first.
                                 </p>
                               </div>
                             )}
@@ -593,7 +582,7 @@ export default function SupplyPlanning() {
                     </Button>
                     <Button 
                       onClick={handleAllocationSubmit}
-                      disabled={!allocationForm.farmerId || !allocationForm.quantity || availableFarmers.length === 0}
+                      disabled={!allocationForm.farmerId || !allocationForm.quantity}
                     >
                       <CheckCircle className="h-4 w-4 mr-2" />
                       Create Allocation
