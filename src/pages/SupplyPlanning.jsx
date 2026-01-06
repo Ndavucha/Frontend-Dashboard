@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Calendar } from '@/components/ui/calendar';
 import {
   Table,
   TableBody,
@@ -21,86 +20,59 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   TrendingUp, 
   Calendar as CalendarIcon, 
-  Plus,
-  CheckCircle,
-  X,
-  Clock,
+  Mail,
+  Phone,
   PackageCheck,
   XCircle,
-  Users, 
-  Edit,
   RefreshCw,
-  Truck,          
-  Package,        
-  MapPin,         
-  Sprout 
+  Send,
+  Truck,
+  CheckCircle,
+  AlertCircle
 } from 'lucide-react';
 import { apiService } from '@/api/services';
 import { toast } from 'sonner';
 
 export default function SupplyPlanning() {
-  const [activeTab, setActiveTab] = useState('supply');
-  const [farmers, setFarmers] = useState([]);
   const [allocations, setAllocations] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isAllocationDialogOpen, setIsAllocationDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [allocationForm, setAllocationForm] = useState({
-    farmerId: '',
-    quantity: '',
-    notes: ''
-  });
-  const [editForm, setEditForm] = useState({
-    id: '',
-    quantity: '',
-    notes: '',
-    status: 'scheduled'
-  });
+  const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
   const [selectedAllocation, setSelectedAllocation] = useState(null);
+  const [orderForm, setOrderForm] = useState({
+    orderQuantity: '',
+    orderNotes: ''
+  });
 
-  // Fetch data from backend
-  const fetchData = async () => {
+  // Fetch allocations from backend
+  const fetchAllocations = async () => {
     try {
       setLoading(true);
+      console.log('🔄 Fetching allocations...');
       
-      console.log('🔄 Fetching supply planning data...');
-      
-      // Fetch both farmers and allocations from backend
-      const [farmersResponse, allocationsResponse] = await Promise.all([
-        apiService.farmers.getAll(),
-        apiService.supply.getAllocations()
-      ]);
-      
-      // DEBUG: Log the response
-      console.log('📊 Farmers API Response:', farmersResponse);
-      console.log('📊 Farmers count:', farmersResponse?.length || 0);
-      console.log('📊 Sample farmer:', farmersResponse?.[0]);
-      console.log('📊 Allocations count:', allocationsResponse?.length || 0);
+      const allocationsResponse = await apiService.supply.getAllocations();
+      console.log('📊 Allocations response:', allocationsResponse);
       
       // Ensure we have an array
-      const farmersArray = Array.isArray(farmersResponse) ? farmersResponse : [];
       const allocationsArray = Array.isArray(allocationsResponse) ? allocationsResponse : [];
       
-      setFarmers(farmersArray);
-      setAllocations(allocationsArray);
+      // Filter to only show scheduled allocations (not completed or cancelled)
+      const activeAllocations = allocationsArray.filter(
+        allocation => allocation.status === 'scheduled' || allocation.status === 'in-progress'
+      );
       
-      console.log('✅ Data loaded:', {
-        farmers: farmersArray.length,
-        allocations: allocationsArray.length
-      });
+      setAllocations(activeAllocations);
+      
+      console.log('✅ Allocations loaded:', activeAllocations.length);
       
     } catch (error) {
-      console.error('❌ Error fetching data:', error);
-      toast.error('Failed to load supply planning data');
-      setFarmers([]);
+      console.error('❌ Error fetching allocations:', error);
+      toast.error('Failed to load supply allocations');
       setAllocations([]);
     } finally {
       setLoading(false);
@@ -108,151 +80,130 @@ export default function SupplyPlanning() {
   };
 
   useEffect(() => {
-    fetchData();
+    fetchAllocations();
   }, []);
 
-  // Add test farmers if none exist
-  useEffect(() => {
-    if (!loading && farmers.length === 0) {
-      console.log('⚠️ No farmers found, adding test data for demonstration');
-      const testFarmers = [
-        {
-          id: 1001,
-          name: 'John Test Farmer',
-          county: 'Nairobi',
-          crop: 'Wheat',
-          phone: '+254711000001',
-          contact: 'John Contact',
-          email: 'john@test.com',
-          location: 'Nairobi West',
-          acreage: 50,
-          estYield: 100,
-          status: 'active'
-        },
-        {
-          id: 1002,
-          name: 'Jane Test Farmer',
-          county: 'Kiambu',
-          crop: 'Corn',
-          phone: '+254711000002',
-          contact: 'Jane Contact',
-          email: 'jane@test.com',
-          location: 'Kiambu Town',
-          acreage: 35,
-          estYield: 75,
-          status: 'active'
-        },
-        {
-          id: 1003,
-          name: 'Robert Demo Farmer',
-          county: 'Nakuru',
-          crop: 'Beans',
-          phone: '+254711000003',
-          contact: 'Robert Contact',
-          email: 'robert@test.com',
-          location: 'Nakuru City',
-          acreage: 60,
-          estYield: 120,
-          status: 'active'
-        }
-      ];
-      
-      console.log('➕ Adding test farmers:', testFarmers);
-      setFarmers(testFarmers);
-    }
-  }, [loading, farmers.length]);
-
-  // Handle allocation form input changes
-  const handleAllocationInputChange = (e) => {
+  // Handle order form input changes
+  const handleOrderInputChange = (e) => {
     const { name, value } = e.target;
-    setAllocationForm(prev => ({
+    setOrderForm(prev => ({
       ...prev,
       [name]: value
     }));
   };
 
-  // Handle edit form input changes
-  const handleEditInputChange = (e) => {
-    const { name, value } = e.target;
-    setEditForm(prev => ({
-      ...prev,
-      [name]: value
-    }));
+  // Open order dialog
+  const openOrderDialog = (allocation) => {
+    setSelectedAllocation(allocation);
+    setOrderForm({
+      orderQuantity: allocation.quantity.toString(),
+      orderNotes: ''
+    });
+    setIsOrderDialogOpen(true);
   };
 
-  // Submit new allocation to backend
-  const handleAllocationSubmit = async () => {
+  // Send order to farmer
+  const handleSendOrder = async () => {
     try {
-      // Validate form
-      if (!allocationForm.farmerId) {
-        toast.error('Please select a farmer');
+      if (!selectedAllocation) {
+        toast.error('No allocation selected');
         return;
       }
 
-      if (!allocationForm.quantity || parseFloat(allocationForm.quantity) <= 0) {
-        toast.error('Please enter a valid quantity');
+      if (!orderForm.orderQuantity || parseFloat(orderForm.orderQuantity) <= 0) {
+        toast.error('Please enter a valid order quantity');
         return;
       }
 
-      // Find selected farmer
-      const selectedFarmer = farmers.find(f => f.id.toString() === allocationForm.farmerId);
-      console.log('👨‍🌾 Selected farmer:', selectedFarmer);
+      const orderQuantity = parseFloat(orderForm.orderQuantity);
       
-      if (!selectedFarmer) {
-        toast.error('Selected farmer not found');
+      // Check if order quantity exceeds allocated quantity
+      if (orderQuantity > selectedAllocation.quantity) {
+        toast.error(`Order quantity (${orderQuantity}) cannot exceed allocated quantity (${selectedAllocation.quantity})`);
         return;
       }
 
-      // Check if farmer is already allocated for this date
-      const isAlreadyAllocated = allocations.some(allocation => 
-        allocation.farmerId === selectedFarmer.id && 
-        new Date(allocation.date).toDateString() === selectedDate.toDateString()
-      );
-
-      if (isAlreadyAllocated) {
-        toast.error('This farmer is already allocated for the selected date');
-        return;
-      }
-
-      // Prepare allocation data for backend
-      const newAllocation = {
-        farmerId: selectedFarmer.id,
-        farmerName: selectedFarmer.name || 'Unknown Farmer',
-        farmerCounty: selectedFarmer.county || '',
-        farmerCrop: selectedFarmer.crop || 'Not specified',
-        farmerContact: selectedFarmer.contact || '',
-        farmerPhone: selectedFarmer.phone || '',
-        farmerEmail: selectedFarmer.email || '',
-        date: selectedDate.toISOString(),
-        quantity: parseFloat(allocationForm.quantity),
-        notes: allocationForm.notes,
-        status: 'scheduled'
+      // Prepare order data
+      const orderData = {
+        allocationId: selectedAllocation.id,
+        farmerId: selectedAllocation.farmerId,
+        farmerName: selectedAllocation.farmerName,
+        farmerEmail: selectedAllocation.farmerEmail,
+        farmerPhone: selectedAllocation.farmerPhone,
+        farmerCounty: selectedAllocation.farmerCounty,
+        farmerCrop: selectedAllocation.farmerCrop,
+        allocatedQuantity: selectedAllocation.quantity,
+        orderQuantity: orderQuantity,
+        orderNotes: orderForm.orderNotes,
+        orderDate: new Date().toISOString(),
+        status: 'order-sent',
+        expectedDeliveryDate: selectedAllocation.date
       };
 
-      console.log('📤 Creating allocation:', newAllocation);
+      console.log('📤 Sending order:', orderData);
 
-      // Send to backend API
-      const savedAllocation = await apiService.supply.createAllocation(newAllocation);
+      // In a real app, this would send email/SMS to farmer
+      // For now, we'll update the allocation status and show success message
       
-      // Update local state
-      setAllocations(prev => [...prev, savedAllocation]);
-      toast.success('Supply allocated successfully! This farmer can now be selected in Procurement.');
+      // Update allocation status to in-progress if it's scheduled
+      if (selectedAllocation.status === 'scheduled') {
+        const updatedAllocation = {
+          ...selectedAllocation,
+          status: 'in-progress',
+          orderQuantity: orderQuantity,
+          orderNotes: orderForm.orderNotes,
+          orderSentAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+
+        await apiService.supply.updateAllocation(selectedAllocation.id, updatedAllocation);
+        
+        // Update local state
+        setAllocations(prev => 
+          prev.map(a => 
+            a.id === selectedAllocation.id 
+              ? updatedAllocation
+              : a
+          )
+        );
+      }
+
+      // Simulate sending email/SMS
+      await simulateSendNotification(orderData);
       
-      // Reset form and close dialog
-      setAllocationForm({
-        farmerId: '',
-        quantity: '',
-        notes: ''
+      toast.success(`Order sent to ${selectedAllocation.farmerName}!`);
+      
+      // Close dialog and reset form
+      setIsOrderDialogOpen(false);
+      setOrderForm({
+        orderQuantity: '',
+        orderNotes: ''
       });
-      setIsAllocationDialogOpen(false);
       
       // Refresh data
-      await fetchData();
+      await fetchAllocations();
       
     } catch (error) {
-      console.error('❌ Error creating allocation:', error);
-      toast.error(error.response?.data?.error || 'Failed to allocate supply');
+      console.error('❌ Error sending order:', error);
+      toast.error('Failed to send order');
     }
+  };
+
+  // Simulate sending notification to farmer
+  const simulateSendNotification = async (orderData) => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        console.log('📧 Email sent to:', orderData.farmerEmail);
+        console.log('📱 SMS sent to:', orderData.farmerPhone);
+        console.log('📋 Order details:', {
+          farmer: orderData.farmerName,
+          crop: orderData.farmerCrop,
+          quantity: orderData.orderQuantity,
+          expectedDate: new Date(orderData.expectedDeliveryDate).toLocaleDateString()
+        });
+        resolve(true);
+      }, 1000);
+    });
   };
 
   // Update allocation status
@@ -264,7 +215,6 @@ export default function SupplyPlanning() {
         return;
       }
 
-      // Update in backend
       const updatedAllocation = {
         ...allocation,
         status: newStatus,
@@ -285,7 +235,7 @@ export default function SupplyPlanning() {
       toast.success(`Status updated to ${newStatus}`);
       
       // Refresh data
-      await fetchData();
+      await fetchAllocations();
       
     } catch (error) {
       console.error('❌ Error updating status:', error);
@@ -293,27 +243,10 @@ export default function SupplyPlanning() {
     }
   };
 
-  // Open edit dialog
-  const openEditDialog = (allocation) => {
-    setSelectedAllocation(allocation);
-    setEditForm({
-      id: allocation.id,
-      quantity: allocation.quantity.toString(),
-      notes: allocation.notes || '',
-      status: allocation.status
-    });
-    setIsEditDialogOpen(true);
-  };
-
-  // Save edited allocation
-  const handleEditAllocation = async () => {
+  // Complete delivery
+  const handleCompleteDelivery = async (allocationId) => {
     try {
-      if (!editForm.quantity || parseFloat(editForm.quantity) <= 0) {
-        toast.error('Please enter a valid quantity');
-        return;
-      }
-
-      const allocation = allocations.find(a => a.id === editForm.id);
+      const allocation = allocations.find(a => a.id === allocationId);
       if (!allocation) {
         toast.error('Allocation not found');
         return;
@@ -321,56 +254,30 @@ export default function SupplyPlanning() {
 
       const updatedAllocation = {
         ...allocation,
-        quantity: parseFloat(editForm.quantity),
-        notes: editForm.notes,
-        status: editForm.status,
+        status: 'completed',
+        deliveredAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
 
-      // Update in backend
-      await apiService.supply.updateAllocation(editForm.id, updatedAllocation);
+      await apiService.supply.updateAllocation(allocationId, updatedAllocation);
       
       // Update local state
       setAllocations(prev => 
         prev.map(a => 
-          a.id === editForm.id 
-            ? updatedAllocation
+          a.id === allocationId 
+            ? { ...a, status: 'completed', deliveredAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
             : a
         )
       );
       
-      toast.success('Allocation updated successfully');
-      setIsEditDialogOpen(false);
+      toast.success('Delivery marked as completed!');
       
       // Refresh data
-      await fetchData();
+      await fetchAllocations();
       
     } catch (error) {
-      console.error('❌ Error updating allocation:', error);
-      toast.error('Failed to update allocation');
-    }
-  };
-
-  // Delete allocation
-  const handleDeleteAllocation = async (allocationId) => {
-    try {
-      if (!window.confirm('Are you sure you want to delete this allocation?')) {
-        return;
-      }
-
-      // Delete from backend
-      await apiService.supply.deleteAllocation(allocationId);
-      
-      // Update local state
-      setAllocations(prev => prev.filter(allocation => allocation.id !== allocationId));
-      toast.success('Allocation deleted successfully');
-      
-      // Refresh data to sync with backend
-      await fetchData();
-      
-    } catch (error) {
-      console.error('❌ Error deleting allocation:', error);
-      toast.error('Failed to delete allocation');
+      console.error('❌ Error completing delivery:', error);
+      toast.error('Failed to mark delivery as completed');
     }
   };
 
@@ -380,22 +287,22 @@ export default function SupplyPlanning() {
       case 'scheduled':
         return (
           <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 gap-1">
-            <Clock className="h-3 w-3" />
+            <CalendarIcon className="h-3 w-3" />
             Scheduled
           </Badge>
         );
       case 'in-progress':
         return (
           <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 gap-1">
-            <Clock className="h-3 w-3" />
-            In Progress
+            <Truck className="h-3 w-3" />
+            Order Sent
           </Badge>
         );
       case 'completed':
         return (
           <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 gap-1">
             <PackageCheck className="h-3 w-3" />
-            Completed
+            Delivered
           </Badge>
         );
       case 'cancelled':
@@ -446,16 +353,21 @@ export default function SupplyPlanning() {
     return allocations.reduce((total, allocation) => total + (allocation.quantity || 0), 0);
   };
 
+  // Calculate total orders sent
+  const calculateTotalOrders = () => {
+    return allocations.filter(a => a.status === 'in-progress' || a.status === 'completed').length;
+  };
+
   if (loading) {
     return (
       <DashboardLayout
-        title="Supply Planning"
-        description="Plan supply ahead of time and allocate farmers to dates"
+        title="Supply Orders"
+        description="Send orders to allocated farmers and track deliveries"
       >
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-            <p className="mt-4 text-muted-foreground">Loading supply data...</p>
+            <p className="mt-4 text-muted-foreground">Loading supply orders...</p>
           </div>
         </div>
       </DashboardLayout>
@@ -463,21 +375,23 @@ export default function SupplyPlanning() {
   }
 
   const groupedAllocations = getGroupedAllocations();
+  const totalOrders = calculateTotalOrders();
+  const totalAllocated = calculateTotalAllocated();
 
   return (
     <DashboardLayout
-      title="Supply Planning"
-      description="Plan supply ahead of time and allocate farmers to dates. These allocations will be available in Procurement."
+      title="Supply Orders"
+      description="Send orders to allocated farmers and track deliveries. Farmers are allocated in the Farmers page."
     >
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+      <Tabs defaultValue="orders" className="space-y-6">
         <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="supply" className="gap-2">
-            <TrendingUp className="h-4 w-4" />
-            Supply Planning
+          <TabsTrigger value="orders" className="gap-2">
+            <Truck className="h-4 w-4" />
+            Orders & Deliveries
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="supply" className="animate-fade-in space-y-6">
+        <TabsContent value="orders" className="animate-fade-in space-y-6">
           {/* Summary Cards */}
           <div className="grid gap-4 md:grid-cols-3">
             <Card>
@@ -487,7 +401,7 @@ export default function SupplyPlanning() {
                     <CalendarIcon className="h-5 w-5 text-blue-600 mr-2" />
                     <p className="text-2xl font-bold">{allocations.length}</p>
                   </div>
-                  <p className="text-sm text-muted-foreground">Total Allocations</p>
+                  <p className="text-sm text-muted-foreground">Active Allocations</p>
                 </div>
               </CardContent>
             </Card>
@@ -496,10 +410,10 @@ export default function SupplyPlanning() {
               <CardContent className="pt-6">
                 <div className="text-center">
                   <div className="flex items-center justify-center mb-2">
-                    <PackageCheck className="h-5 w-5 text-green-600 mr-2" />
-                    <p className="text-2xl font-bold">{calculateTotalAllocated().toFixed(1)}</p>
+                    <Send className="h-5 w-5 text-green-600 mr-2" />
+                    <p className="text-2xl font-bold">{totalOrders}</p>
                   </div>
-                  <p className="text-sm text-muted-foreground">Total Planned Quantity (tons)</p>
+                  <p className="text-sm text-muted-foreground">Orders Sent</p>
                 </div>
               </CardContent>
             </Card>
@@ -508,10 +422,10 @@ export default function SupplyPlanning() {
               <CardContent className="pt-6">
                 <div className="text-center">
                   <div className="flex items-center justify-center mb-2">
-                    <Users className="h-5 w-5 text-purple-600 mr-2" />
-                    <p className="text-2xl font-bold">{farmers.length}</p>
+                    <PackageCheck className="h-5 w-5 text-purple-600 mr-2" />
+                    <p className="text-2xl font-bold">{totalAllocated.toFixed(1)}</p>
                   </div>
-                  <p className="text-sm text-muted-foreground">Available Farmers</p>
+                  <p className="text-sm text-muted-foreground">Total Planned (tons)</p>
                 </div>
               </CardContent>
             </Card>
@@ -521,146 +435,22 @@ export default function SupplyPlanning() {
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="flex items-center gap-2">
-                  <CalendarIcon className="h-5 w-5 text-primary" />
-                  Supply Calendar
+                  <Truck className="h-5 w-5 text-primary" />
+                  Orders & Deliveries
                 </CardTitle>
                 <CardDescription>
-                  Allocate farmers to specific dates for supply delivery. These will appear in Procurement.
+                  Send orders to allocated farmers and track delivery status.
                 </CardDescription>
               </div>
               <div className="flex gap-2">
                 <Button 
                   size="sm"
                   variant="outline"
-                  onClick={fetchData}
+                  onClick={fetchAllocations}
                   title="Refresh data"
                 >
                   <RefreshCw className="h-4 w-4" />
                 </Button>
-                
-                <Dialog open={isAllocationDialogOpen} onOpenChange={(open) => {
-                  setIsAllocationDialogOpen(open);
-                  if (open) {
-                    // Refresh data when dialog opens
-                    fetchData();
-                  }
-                }}>
-                  <DialogTrigger asChild>
-                    <Button 
-                      size="sm"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Allocate Supply
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-md max-h-[90vh] overflow-hidden flex flex-col">
-                    <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
-                      <DialogTitle>Allocate Supply Date</DialogTitle>
-                      <DialogDescription>
-                        Select a date and assign a farmer for supply delivery. This farmer will appear in Procurement.
-                      </DialogDescription>
-                    </DialogHeader>
-                    
-                    <div className="overflow-y-auto flex-1 p-6">
-                      <div className="grid gap-6">
-                        <div className="space-y-2">
-                          <Label>Select Date *</Label>
-                          <Calendar
-                            mode="single"
-                            selected={selectedDate}
-                            onSelect={setSelectedDate}
-                            className="rounded-md border"
-                            disabled={(date) => date < new Date()}
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            Selected: {selectedDate.toLocaleDateString('en-US', { 
-                              weekday: 'long', 
-                              year: 'numeric', 
-                              month: 'long', 
-                              day: 'numeric' 
-                            })}
-                          </p>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="farmer">Select Farmer *</Label>
-                          <div className="text-sm text-gray-500 mb-1">
-                            Available farmers: {farmers.length}
-                          </div>
-                          
-                          <select
-                            id="farmer"
-                            name="farmerId"
-                            value={allocationForm.farmerId}
-                            onChange={handleAllocationInputChange}
-                            className="w-full p-2.5 border border-gray-300 rounded-md bg-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            required
-                          >
-                            <option value="">-- Choose a farmer --</option>
-                            {farmers.map(farmer => (
-                              <option key={farmer.id} value={farmer.id}>
-                                {farmer.name} - {farmer.crop} ({farmer.county})
-                              </option>
-                            ))}
-                          </select>
-                          
-                          {allocationForm.farmerId && (
-                            <div className="mt-2 p-2 bg-green-50 rounded border border-green-200">
-                              <p className="text-xs text-green-700 font-medium">
-                                ✓ Farmer selected
-                              </p>
-                              <p className="text-xs text-green-600">
-                                This allocation will appear in Procurement for order creation
-                              </p>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="quantity">Quantity (tons) *</Label>
-                          <Input
-                            id="quantity"
-                            name="quantity"
-                            type="number"
-                            value={allocationForm.quantity}
-                            onChange={handleAllocationInputChange}
-                            placeholder="Enter quantity"
-                            min="0.1"
-                            step="0.1"
-                            required
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            This will pre-fill the quantity in Procurement orders
-                          </p>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="notes">Notes</Label>
-                          <Input
-                            id="notes"
-                            name="notes"
-                            value={allocationForm.notes}
-                            onChange={handleAllocationInputChange}
-                            placeholder="Additional notes for procurement team..."
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
-                      <Button variant="outline" onClick={() => setIsAllocationDialogOpen(false)}>
-                        Cancel
-                      </Button>
-                      <Button 
-                        onClick={handleAllocationSubmit}
-                        disabled={!allocationForm.farmerId || !allocationForm.quantity}
-                      >
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Create Allocation
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
               </div>
             </CardHeader>
             
@@ -671,17 +461,28 @@ export default function SupplyPlanning() {
                     <CalendarIcon className="h-8 w-8 text-gray-400" />
                   </div>
                   <h3 className="text-lg font-semibold text-gray-700 mb-2">
-                    No Supply Allocations Yet
+                    No Active Allocations
                   </h3>
                   <p className="text-gray-500 mb-6 max-w-md mx-auto">
-                    Start planning your supply by allocating farmers to specific dates. These allocations will appear in Procurement for order creation.
+                    Allocate farmers in the Farmers page first. Once allocated, they will appear here for order processing.
                   </p>
-                  <Button 
-                    onClick={() => setIsAllocationDialogOpen(true)}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create First Allocation
-                  </Button>
+                  <div className="flex flex-col gap-3 max-w-sm mx-auto">
+                    <p className="text-sm text-gray-600">Steps:</p>
+                    <ol className="text-sm text-gray-500 text-left space-y-2">
+                      <li className="flex items-start gap-2">
+                        <span className="bg-blue-100 text-blue-600 rounded-full h-5 w-5 flex items-center justify-center text-xs mt-0.5">1</span>
+                        <span>Go to Farmers page</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="bg-blue-100 text-blue-600 rounded-full h-5 w-5 flex items-center justify-center text-xs mt-0.5">2</span>
+                        <span>Click "Allocate" on a farmer</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="bg-blue-100 text-blue-600 rounded-full h-5 w-5 flex items-center justify-center text-xs mt-0.5">3</span>
+                        <span>Allocated farmers appear here for orders</span>
+                      </li>
+                    </ol>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-6">
@@ -693,7 +494,7 @@ export default function SupplyPlanning() {
                         </h3>
                         <div className="flex items-center gap-3">
                           <Badge variant="secondary">
-                            {dateAllocations.length} allocation{dateAllocations.length !== 1 ? 's' : ''}
+                            {dateAllocations.length} farmer{dateAllocations.length !== 1 ? 's' : ''}
                           </Badge>
                           <span className="text-sm text-muted-foreground">
                             {dateAllocations.reduce((sum, a) => sum + a.quantity, 0).toFixed(1)} tons
@@ -709,7 +510,7 @@ export default function SupplyPlanning() {
                               <TableHead>Contact</TableHead>
                               <TableHead>Location</TableHead>
                               <TableHead>Crop</TableHead>
-                              <TableHead>Quantity (tons)</TableHead>
+                              <TableHead>Allocated (tons)</TableHead>
                               <TableHead>Status</TableHead>
                               <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
@@ -726,14 +527,20 @@ export default function SupplyPlanning() {
                                   </div>
                                 </TableCell>
                                 <TableCell>
-                                  <div className="text-sm">
+                                  <div className="space-y-1">
                                     {allocation.farmerPhone ? (
-                                      <p className="text-blue-600">{allocation.farmerPhone}</p>
+                                      <div className="flex items-center gap-1 text-sm text-blue-600">
+                                        <Phone className="h-3 w-3" />
+                                        {allocation.farmerPhone}
+                                      </div>
                                     ) : (
-                                      <p className="text-muted-foreground">No phone</p>
+                                      <p className="text-sm text-muted-foreground">No phone</p>
                                     )}
                                     {allocation.farmerEmail && (
-                                      <p className="text-green-600 text-xs">{allocation.farmerEmail}</p>
+                                      <div className="flex items-center gap-1 text-xs text-green-600">
+                                        <Mail className="h-3 w-3" />
+                                        {allocation.farmerEmail}
+                                      </div>
                                     )}
                                   </div>
                                 </TableCell>
@@ -745,58 +552,55 @@ export default function SupplyPlanning() {
                                 </TableCell>
                                 <TableCell className="font-medium">
                                   {allocation.quantity.toFixed(1)} tons
+                                  {allocation.orderQuantity && (
+                                    <p className="text-xs text-muted-foreground">
+                                      Ordered: {allocation.orderQuantity.toFixed(1)} tons
+                                    </p>
+                                  )}
                                 </TableCell>
                                 <TableCell>
                                   {getStatusBadge(allocation.status)}
                                 </TableCell>
                                 <TableCell className="text-right">
                                   <div className="flex justify-end gap-2">
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => openEditDialog(allocation)}
-                                      className="h-8 px-2"
-                                    >
-                                      <Edit className="h-4 w-4" />
-                                    </Button>
                                     {allocation.status === 'scheduled' && (
+                                      <Button
+                                        size="sm"
+                                        onClick={() => openOrderDialog(allocation)}
+                                        className="h-8 px-3"
+                                      >
+                                        <Send className="h-4 w-4 mr-1" />
+                                        Send Order
+                                      </Button>
+                                    )}
+                                    
+                                    {allocation.status === 'in-progress' && (
                                       <>
                                         <Button
-                                          variant="ghost"
+                                          variant="outline"
                                           size="sm"
-                                          onClick={() => handleStatusUpdate(allocation.id, 'in-progress')}
+                                          onClick={() => openOrderDialog(allocation)}
                                           className="h-8 px-2 text-blue-600"
                                         >
-                                          Start
+                                          <Send className="h-3 w-3 mr-1" />
+                                          Resend
                                         </Button>
                                         <Button
-                                          variant="ghost"
                                           size="sm"
-                                          onClick={() => handleStatusUpdate(allocation.id, 'completed')}
-                                          className="h-8 px-2 text-green-600"
+                                          onClick={() => handleCompleteDelivery(allocation.id)}
+                                          className="h-8 px-3"
                                         >
-                                          Complete
+                                          <CheckCircle className="h-4 w-4 mr-1" />
+                                          Deliver
                                         </Button>
                                       </>
                                     )}
-                                    {allocation.status === 'in-progress' && (
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => handleStatusUpdate(allocation.id, 'completed')}
-                                        className="h-8 px-2 text-green-600"
-                                      >
-                                        Complete
-                                      </Button>
+                                    
+                                    {allocation.status === 'completed' && (
+                                      <Badge variant="outline" className="text-green-600 bg-green-50">
+                                        Delivered
+                                      </Badge>
                                     )}
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => handleDeleteAllocation(allocation.id)}
-                                      className="h-8 px-2 text-red-500 hover:text-red-700"
-                                    >
-                                      <X className="h-4 w-4" />
-                                    </Button>
                                   </div>
                                 </TableCell>
                               </TableRow>
@@ -813,80 +617,120 @@ export default function SupplyPlanning() {
         </TabsContent>
       </Tabs>
 
-      {/* Edit Allocation Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      {/* Send Order Dialog */}
+      <Dialog open={isOrderDialogOpen} onOpenChange={setIsOrderDialogOpen}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
-            <DialogTitle>Edit Allocation</DialogTitle>
+            <DialogTitle>Send Order to Farmer</DialogTitle>
             <DialogDescription>
-              Update allocation details for {selectedAllocation?.farmerName}
+              Send order details to {selectedAllocation?.farmerName}
             </DialogDescription>
           </DialogHeader>
           
           <div className="overflow-y-auto flex-1 p-6">
-            <div className="grid gap-6">
-              {selectedAllocation && (
-                <div className="p-3 bg-blue-50 rounded-lg">
-                  <p className="text-sm font-medium text-blue-700">
-                    {selectedAllocation.farmerName} - {selectedAllocation.farmerCounty}
-                  </p>
-                  <p className="text-sm text-blue-600">
-                    Scheduled for: {formatDate(selectedAllocation.date)}
-                  </p>
+            {selectedAllocation && (
+              <div className="space-y-6">
+                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <h4 className="font-medium text-blue-800 mb-3">Farmer Information</h4>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-blue-600 font-medium">Name:</span>
+                      <p className="font-medium">{selectedAllocation.farmerName}</p>
+                    </div>
+                    <div>
+                      <span className="text-blue-600 font-medium">Crop:</span>
+                      <p>{selectedAllocation.farmerCrop}</p>
+                    </div>
+                    <div>
+                      <span className="text-blue-600 font-medium">Email:</span>
+                      <p className="flex items-center gap-1">
+                        <Mail className="h-3 w-3" />
+                        {selectedAllocation.farmerEmail || 'Not provided'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-blue-600 font-medium">Phone:</span>
+                      <p className="flex items-center gap-1">
+                        <Phone className="h-3 w-3" />
+                        {selectedAllocation.farmerPhone || 'Not provided'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-blue-600 font-medium">Location:</span>
+                      <p>{selectedAllocation.farmerCounty}</p>
+                    </div>
+                    <div>
+                      <span className="text-blue-600 font-medium">Delivery Date:</span>
+                      <p>{formatDate(selectedAllocation.date)}</p>
+                    </div>
+                  </div>
                 </div>
-              )}
 
-              <div className="space-y-2">
-                <Label htmlFor="edit-quantity">Quantity (tons) *</Label>
-                <Input
-                  id="edit-quantity"
-                  name="quantity"
-                  type="number"
-                  value={editForm.quantity}
-                  onChange={handleEditInputChange}
-                  placeholder="Enter quantity"
-                  min="0.1"
-                  step="0.1"
-                  required
-                />
-              </div>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <Label htmlFor="orderQuantity">Order Quantity (tons) *</Label>
+                      <span className="text-sm text-muted-foreground">
+                        Allocated: {selectedAllocation.quantity.toFixed(1)} tons
+                      </span>
+                    </div>
+                    <Input
+                      id="orderQuantity"
+                      name="orderQuantity"
+                      type="number"
+                      value={orderForm.orderQuantity}
+                      onChange={handleOrderInputChange}
+                      placeholder="Enter order quantity"
+                      min="0.1"
+                      max={selectedAllocation.quantity}
+                      step="0.1"
+                      required
+                    />
+                    {parseFloat(orderForm.orderQuantity) > selectedAllocation.quantity && (
+                      <div className="flex items-center gap-1 text-sm text-red-600">
+                        <AlertCircle className="h-4 w-4" />
+                        Order quantity cannot exceed allocated quantity
+                      </div>
+                    )}
+                  </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="edit-status">Status</Label>
-                <select
-                  id="edit-status"
-                  name="status"
-                  value={editForm.status}
-                  onChange={handleEditInputChange}
-                  className="w-full p-2.5 border border-gray-300 rounded-md bg-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="scheduled">Scheduled</option>
-                  <option value="in-progress">In Progress</option>
-                  <option value="completed">Completed</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
-              </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="orderNotes">Order Notes (Optional)</Label>
+                    <Input
+                      id="orderNotes"
+                      name="orderNotes"
+                      value={orderForm.orderNotes}
+                      onChange={handleOrderInputChange}
+                      placeholder="Special instructions or notes for the farmer..."
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="edit-notes">Notes</Label>
-                <Input
-                  id="edit-notes"
-                  name="notes"
-                  value={editForm.notes}
-                  onChange={handleEditInputChange}
-                  placeholder="Update notes..."
-                />
+                  <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                    <h4 className="font-medium text-green-800 mb-2 flex items-center gap-2">
+                      <Send className="h-4 w-4" />
+                      Order Will Be Sent To:
+                    </h4>
+                    <ul className="text-sm text-green-700 space-y-1">
+                      <li>✓ Email: {selectedAllocation.farmerEmail || 'Not available'}</li>
+                      <li>✓ SMS: {selectedAllocation.farmerPhone || 'Not available'}</li>
+                    </ul>
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setIsOrderDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleEditAllocation}>
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Update Allocation
+            <Button 
+              onClick={handleSendOrder}
+              disabled={!orderForm.orderQuantity || parseFloat(orderForm.orderQuantity) > selectedAllocation?.quantity}
+              className="gap-2"
+            >
+              <Send className="h-4 w-4" />
+              Send Order
             </Button>
           </DialogFooter>
         </DialogContent>
