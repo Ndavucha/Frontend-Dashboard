@@ -4,6 +4,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
@@ -21,17 +22,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { 
   Package,
   PackageCheck,
@@ -50,7 +42,12 @@ import {
   BarChart3,
   Plus,
   Filter,
-  Download
+  Download,
+  Send,
+  Mail,
+  Phone,
+  MapPin,
+  Sprout
 } from 'lucide-react';
 import { apiService } from '@/api/services';
 import { toast } from 'sonner';
@@ -61,9 +58,8 @@ export default function Procurement() {
   const [orders, setOrders] = useState([]);
   const [aggregators, setAggregators] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedDateFilter, setSelectedDateFilter] = useState('all');
   const [isSupplementDialogOpen, setIsSupplementDialogOpen] = useState(false);
-  const [isSendRequestDialogOpen, setIsSendRequestDialogOpen] = useState(false);
+  const [isAggregatorDialogOpen, setIsAggregatorDialogOpen] = useState(false);
   const [selectedAggregator, setSelectedAggregator] = useState(null);
   const [supplementForm, setSupplementForm] = useState({
     quantity: '',
@@ -79,13 +75,15 @@ export default function Procurement() {
       
       const [allocationsResponse, ordersResponse, aggregatorsResponse] = await Promise.all([
         apiService.supply.getAllocations(),
-        apiService.procurement.getOrders ? apiService.procurement.getOrders() : Promise.resolve([]),
+        apiService.procurement.getOrders(),
         apiService.aggregators.getAll()
       ]);
       
-      console.log('📊 Allocations:', allocationsResponse?.length || 0);
-      console.log('📊 Orders:', ordersResponse?.length || 0);
-      console.log('📊 Aggregators:', aggregatorsResponse?.length || 0);
+      console.log('📊 Data loaded:', {
+        allocations: Array.isArray(allocationsResponse) ? allocationsResponse.length : 0,
+        orders: Array.isArray(ordersResponse) ? ordersResponse.length : 0,
+        aggregators: Array.isArray(aggregatorsResponse) ? aggregatorsResponse.length : 0
+      });
       
       // Ensure arrays
       const allocationsArray = Array.isArray(allocationsResponse) ? allocationsResponse : [];
@@ -113,55 +111,57 @@ export default function Procurement() {
 
   // Calculate key metrics
   const calculateMetrics = () => {
-    const today = new Date().toISOString().split('T')[0];
-    const nextWeek = new Date();
-    nextWeek.setDate(nextWeek.getDate() + 7);
-    const nextWeekStr = nextWeek.toISOString().split('T')[0];
-
-    // Filter allocations
+    // Get active allocations (scheduled or in-progress)
     const activeAllocations = allocations.filter(a => 
       a.status === 'scheduled' || a.status === 'in-progress'
     );
-
-    const upcomingAllocations = allocations.filter(a => 
-      a.date >= today && a.date <= nextWeekStr
-    );
-
-    const pastAllocations = allocations.filter(a => 
-      a.date < today
-    );
-
+    
+    // Get completed allocations
+    const completedAllocations = allocations.filter(a => a.status === 'completed');
+    
     // Calculate totals
     const totalAllocated = activeAllocations.reduce((sum, a) => sum + (a.quantity || 0), 0);
-    const totalUpcoming = upcomingAllocations.reduce((sum, a) => sum + (a.quantity || 0), 0);
-    const totalPast = pastAllocations.reduce((sum, a) => sum + (a.quantity || 0), 0);
-
+    const totalCompleted = completedAllocations.reduce((sum, a) => sum + (a.quantity || 0), 0);
+    
     // Find orders related to allocations
-    const ordersWithAllocations = orders.filter(order => 
-      activeAllocations.some(allocation => 
+    const ordersWithAllocations = orders.filter(order => {
+      return activeAllocations.some(allocation => 
         allocation.farmerId === order.farmerId ||
         allocation.farmerName === order.supplierName
-      )
-    );
-
+      );
+    });
+    
     const totalOrdered = ordersWithAllocations.reduce((sum, o) => sum + (o.quantityOrdered || 0), 0);
     const totalReceived = ordersWithAllocations.reduce((sum, o) => sum + (o.quantityAccepted || 0), 0);
-
+    
     // Calculate deficit
     const deficit = Math.max(0, totalAllocated - totalReceived);
-
+    const deficitPercentage = totalAllocated > 0 ? (deficit / totalAllocated) * 100 : 0;
+    
+    // Get upcoming allocations (next 7 days)
+    const today = new Date();
+    const nextWeek = new Date();
+    nextWeek.setDate(nextWeek.getDate() + 7);
+    
+    const upcomingAllocations = activeAllocations.filter(a => {
+      if (!a.date) return false;
+      const allocationDate = new Date(a.date);
+      return allocationDate >= today && allocationDate <= nextWeek;
+    });
+    
+    const totalUpcoming = upcomingAllocations.reduce((sum, a) => sum + (a.quantity || 0), 0);
+    
     return {
       totalAllocated: totalAllocated.toFixed(1),
       totalOrdered: totalOrdered.toFixed(1),
       totalReceived: totalReceived.toFixed(1),
       deficit: deficit.toFixed(1),
-      deficitPercentage: totalAllocated > 0 ? ((deficit / totalAllocated) * 100).toFixed(1) : '0.0',
+      deficitPercentage: deficitPercentage.toFixed(1),
+      totalUpcoming: totalUpcoming.toFixed(1),
       upcomingCount: upcomingAllocations.length,
-      upcomingTons: totalUpcoming.toFixed(1),
-      pastCount: pastAllocations.length,
-      pastTons: totalPast.toFixed(1),
-      activeAllocationCount: activeAllocations.length,
-      orderCount: ordersWithAllocations.length
+      allocationsCount: activeAllocations.length,
+      ordersCount: ordersWithAllocations.length,
+      completionRate: totalAllocated > 0 ? (totalCompleted / totalAllocated * 100).toFixed(1) : '0.0'
     };
   };
 
@@ -170,12 +170,7 @@ export default function Procurement() {
     const grouped = {};
     
     allocations.forEach(allocation => {
-      if (selectedDateFilter === 'past' && allocation.date >= new Date().toISOString().split('T')[0]) {
-        return;
-      }
-      if (selectedDateFilter === 'upcoming' && allocation.date < new Date().toISOString().split('T')[0]) {
-        return;
-      }
+      if (!allocation.date) return;
       
       const date = new Date(allocation.date).toDateString();
       if (!grouped[date]) {
@@ -186,12 +181,7 @@ export default function Procurement() {
     
     // Sort dates chronologically
     return Object.entries(grouped)
-      .sort(([dateA], [dateB]) => {
-        if (selectedDateFilter === 'past') {
-          return new Date(dateB) - new Date(dateA); // Reverse for past
-        }
-        return new Date(dateA) - new Date(dateB);
-      })
+      .sort(([dateA], [dateB]) => new Date(dateA) - new Date(dateB))
       .reduce((acc, [date, allocations]) => {
         acc[date] = allocations.sort((a, b) => a.farmerName?.localeCompare(b.farmerName));
         return acc;
@@ -200,27 +190,56 @@ export default function Procurement() {
 
   // Find related order for an allocation
   const getRelatedOrder = (allocation) => {
-    return orders.find(order => 
-      order.farmerId === allocation.farmerId && 
-      new Date(order.orderDate).toDateString() === new Date(allocation.date).toDateString()
-    );
+    return orders.find(order => {
+      const matchesFarmer = order.farmerId === allocation.farmerId || 
+                           order.supplierName === allocation.farmerName;
+      const matchesDate = !order.orderDate || 
+                         new Date(order.orderDate).toDateString() === new Date(allocation.date).toDateString();
+      return matchesFarmer && matchesDate;
+    });
+  };
+
+  // Get delivery timeline
+  const getDeliveryTimeline = () => {
+    const timeline = [];
+    const today = new Date();
+    
+    allocations.forEach(allocation => {
+      if (!allocation.date) return;
+      
+      const deliveryDate = new Date(allocation.date);
+      const daysDiff = Math.ceil((deliveryDate - today) / (1000 * 60 * 60 * 24));
+      
+      if (daysDiff >= 0) {
+        const relatedOrder = getRelatedOrder(allocation);
+        
+        timeline.push({
+          id: allocation.id,
+          farmerName: allocation.farmerName,
+          crop: allocation.farmerCrop,
+          quantity: allocation.quantity,
+          deliveryDate: allocation.date,
+          daysUntilDelivery: daysDiff,
+          status: allocation.status,
+          orderStatus: relatedOrder ? (relatedOrder.goodsReceived ? 'received' : 'ordered') : 'not-ordered',
+          orderQuantity: relatedOrder?.quantityOrdered,
+          receivedQuantity: relatedOrder?.quantityAccepted
+        });
+      }
+    });
+    
+    // Sort by delivery date
+    return timeline.sort((a, b) => new Date(a.deliveryDate) - new Date(b.deliveryDate));
   };
 
   // Format date for display
   const formatDate = (dateString) => {
+    if (!dateString) return 'No date';
     return new Date(dateString).toLocaleDateString('en-US', { 
       weekday: 'short',
       month: 'short', 
       day: 'numeric',
       year: 'numeric'
-    });
-  };
-
-  // Format date for table
-  const formatTableDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric'
     });
   };
 
@@ -242,40 +261,28 @@ export default function Procurement() {
           <PackageCheck className="h-3 w-3" />
           Delivered
         </Badge>;
-      case 'cancelled':
-        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 gap-1">
-          <PackageX className="h-3 w-3" />
-          Cancelled
-        </Badge>;
       default:
-        return <Badge variant="outline">{status}</Badge>;
+        return <Badge variant="outline">{status || 'Unknown'}</Badge>;
     }
   };
 
   // Get order status badge
-  const getOrderStatusBadge = (order) => {
-    if (!order.goodsReceived) {
-      return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-        <Clock className="h-3 w-3 mr-1" />
-        Ordered
-      </Badge>;
-    }
-    
-    if (order.quantityAccepted === 0) {
-      return <Badge variant="destructive" className="gap-1">
-        <PackageX className="h-3 w-3" />
-        Rejected
-      </Badge>;
-    } else if (order.quantityAccepted < order.quantityDelivered) {
-      return <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
-        <AlertCircle className="h-3 w-3 mr-1" />
-        Partial
-      </Badge>;
-    } else {
-      return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 gap-1">
-        <CheckCircle className="h-3 w-3" />
-        Received
-      </Badge>;
+  const getOrderStatusBadge = (orderStatus) => {
+    switch (orderStatus) {
+      case 'received':
+        return <Badge variant="success" className="gap-1">
+          <PackageCheck className="h-3 w-3" />
+          Received
+        </Badge>;
+      case 'ordered':
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 gap-1">
+          <Truck className="h-3 w-3" />
+          Ordered
+        </Badge>;
+      default:
+        return <Badge variant="outline" className="text-gray-500">
+          Not Ordered
+        </Badge>;
     }
   };
 
@@ -296,13 +303,23 @@ export default function Procurement() {
         return;
       }
 
-      // In a real app, this would send a request to aggregators/FarmMall
-      console.log('📤 Sending supplement request:', supplementForm);
+      const metrics = calculateMetrics();
+      const deficit = parseFloat(metrics.deficit);
+      const requestedQuantity = parseFloat(supplementForm.quantity);
       
+      if (requestedQuantity > deficit * 2) {
+        toast.warning(`Requested quantity (${requestedQuantity}t) is more than double the deficit (${deficit}t)`);
+      }
+
       // Simulate API call
+      console.log('📤 Sending supplement request:', {
+        ...supplementForm,
+        deficit: metrics.deficit
+      });
+      
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      toast.success(`Supplement request for ${supplementForm.quantity} tons sent successfully!`);
+      toast.success(`Supplement request for ${supplementForm.quantity} tons sent!`);
       setIsSupplementDialogOpen(false);
       setSupplementForm({
         quantity: '',
@@ -316,8 +333,8 @@ export default function Procurement() {
     }
   };
 
-  // Handle send request to aggregator
-  const handleSendAggregatorRequest = async () => {
+  // Handle request to aggregator
+  const handleAggregatorRequest = async () => {
     try {
       if (!selectedAggregator) {
         toast.error('Please select an aggregator');
@@ -334,11 +351,10 @@ export default function Procurement() {
         ...supplementForm
       });
       
-      // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      toast.success(`Request sent to ${selectedAggregator.name} successfully!`);
-      setIsSendRequestDialogOpen(false);
+      toast.success(`Request sent to ${selectedAggregator.name}!`);
+      setIsAggregatorDialogOpen(false);
       setSelectedAggregator(null);
       setSupplementForm({
         quantity: '',
@@ -356,6 +372,7 @@ export default function Procurement() {
   const handleExportData = () => {
     const data = {
       metrics: calculateMetrics(),
+      timeline: getDeliveryTimeline(),
       allocations: allocations,
       orders: orders,
       timestamp: new Date().toISOString()
@@ -364,7 +381,7 @@ export default function Procurement() {
     const dataStr = JSON.stringify(data, null, 2);
     const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
     
-    const exportFileDefaultName = `procurement-overview-${new Date().toISOString().split('T')[0]}.json`;
+    const exportFileDefaultName = `procurement-${new Date().toISOString().split('T')[0]}.json`;
     
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);
@@ -376,12 +393,13 @@ export default function Procurement() {
 
   const metrics = calculateMetrics();
   const groupedAllocations = getGroupedAllocations();
+  const deliveryTimeline = getDeliveryTimeline();
 
   if (loading) {
     return (
       <DashboardLayout
-        title="Procurement Overview"
-        description="Monitor supply allocations, orders, and manage deficits"
+        title="Procurement Dashboard"
+        description="Monitor supply, orders, and manage deficits"
       >
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
@@ -395,8 +413,8 @@ export default function Procurement() {
 
   return (
     <DashboardLayout
-      title="Procurement Overview"
-      description="Monitor supply allocations, orders, and manage deficits"
+      title="Procurement Dashboard"
+      description="Monitor supply allocations, orders sent, and manage deficits"
     >
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-muted/50 p-1">
@@ -404,9 +422,9 @@ export default function Procurement() {
             <BarChart3 className="h-4 w-4" />
             Overview
           </TabsTrigger>
-          <TabsTrigger value="allocations" className="gap-2">
+          <TabsTrigger value="timeline" className="gap-2">
             <Calendar className="h-4 w-4" />
-            Allocations
+            Delivery Timeline
           </TabsTrigger>
           <TabsTrigger value="supplement" className="gap-2">
             <ShoppingCart className="h-4 w-4" />
@@ -427,7 +445,7 @@ export default function Procurement() {
                   </div>
                   <p className="text-sm text-muted-foreground">Total Allocated (tons)</p>
                   <p className="text-xs text-blue-600 mt-1">
-                    {metrics.activeAllocationCount} farmers
+                    {metrics.allocationsCount} farmers
                   </p>
                 </div>
               </CardContent>
@@ -442,7 +460,7 @@ export default function Procurement() {
                   </div>
                   <p className="text-sm text-muted-foreground">Received (tons)</p>
                   <p className="text-xs text-green-600 mt-1">
-                    {metrics.orderCount} orders
+                    {metrics.ordersCount} orders
                   </p>
                 </div>
               </CardContent>
@@ -471,16 +489,16 @@ export default function Procurement() {
                     <Calendar className="h-5 w-5 text-purple-600 mr-2" />
                     <p className="text-2xl font-bold">{metrics.upcomingCount}</p>
                   </div>
-                  <p className="text-sm text-muted-foreground">Upcoming Deliveries</p>
+                  <p className="text-sm text-muted-foreground">Upcoming (7 days)</p>
                   <p className="text-xs text-purple-600 mt-1">
-                    {metrics.upcomingTons} tons
+                    {metrics.totalUpcoming} tons
                   </p>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Deficit Alert Card */}
+          {/* Deficit Alert */}
           {parseFloat(metrics.deficit) > 0 && (
             <Card className="border-red-200 bg-red-50">
               <CardContent className="pt-6">
@@ -493,7 +511,7 @@ export default function Procurement() {
                       <h3 className="font-semibold text-red-800">Supply Deficit Detected</h3>
                       <p className="text-red-600 text-sm">
                         You have a deficit of {metrics.deficit} tons ({metrics.deficitPercentage}% of allocated supply).
-                        Consider supplementing from aggregators or FarmMall.
+                        {metrics.upcomingCount > 0 && ` ${metrics.upcomingCount} deliveries upcoming in 7 days.`}
                       </p>
                     </div>
                   </div>
@@ -521,17 +539,17 @@ export default function Procurement() {
             </Card>
           )}
 
-          {/* Upcoming Deliveries Card */}
+          {/* Delivery Timeline Preview */}
           <Card>
             <CardHeader>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <Calendar className="h-5 w-5 text-primary" />
-                    Upcoming Deliveries (Next 7 Days)
+                    Upcoming Deliveries
                   </CardTitle>
                   <CardDescription>
-                    {metrics.upcomingCount} deliveries scheduled, totaling {metrics.upcomingTons} tons
+                    Next 7 days: {metrics.upcomingCount} deliveries, {metrics.totalUpcoming} tons
                   </CardDescription>
                 </div>
                 <div className="flex gap-2">
@@ -549,76 +567,78 @@ export default function Procurement() {
                   >
                     <Download className="h-4 w-4" />
                   </Button>
+                  <Button 
+                    size="sm"
+                    onClick={() => setActiveTab('timeline')}
+                  >
+                    View All
+                  </Button>
                 </div>
               </div>
             </CardHeader>
             
             <CardContent>
-              {allocations.filter(a => 
-                a.date >= new Date().toISOString().split('T')[0] && 
-                a.date <= new Date(new Date().setDate(new Date().getDate() + 7)).toISOString().split('T')[0]
-              ).length === 0 ? (
+              {deliveryTimeline.length === 0 ? (
                 <div className="text-center py-8">
                   <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-4">
                     <Calendar className="h-6 w-6 text-gray-400" />
                   </div>
-                  <p className="text-gray-500">No upcoming deliveries in the next 7 days</p>
+                  <p className="text-gray-500">No upcoming deliveries scheduled</p>
                 </div>
               ) : (
                 <div className="rounded-lg border overflow-hidden">
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-muted/50">
-                        <TableHead>Date</TableHead>
                         <TableHead>Farmer</TableHead>
                         <TableHead>Crop</TableHead>
-                        <TableHead>Allocated</TableHead>
-                        <TableHead>Status</TableHead>
+                        <TableHead>Quantity</TableHead>
+                        <TableHead>Delivery Date</TableHead>
+                        <TableHead>Days</TableHead>
                         <TableHead>Order Status</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {allocations
-                        .filter(a => 
-                          a.date >= new Date().toISOString().split('T')[0] && 
-                          a.date <= new Date(new Date().setDate(new Date().getDate() + 7)).toISOString().split('T')[0]
-                        )
-                        .sort((a, b) => new Date(a.date) - new Date(b.date))
-                        .map(allocation => {
-                          const relatedOrder = getRelatedOrder(allocation);
-                          
-                          return (
-                            <TableRow key={allocation.id}>
-                              <TableCell className="font-medium">
-                                {formatTableDate(allocation.date)}
-                              </TableCell>
-                              <TableCell>
-                                <div className="font-medium">{allocation.farmerName}</div>
-                                <div className="text-xs text-muted-foreground">
-                                  {allocation.farmerCounty}
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                {allocation.farmerCrop || '-'}
-                              </TableCell>
-                              <TableCell className="font-medium">
-                                {allocation.quantity?.toFixed(1) || '0'} tons
-                              </TableCell>
-                              <TableCell>
-                                {getStatusBadge(allocation.status)}
-                              </TableCell>
-                              <TableCell>
-                                {relatedOrder ? (
-                                  getOrderStatusBadge(relatedOrder)
-                                ) : (
-                                  <Badge variant="outline" className="text-gray-600">
-                                    No Order
-                                  </Badge>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
+                      {deliveryTimeline.slice(0, 5).map(item => (
+                        <TableRow key={item.id}>
+                          <TableCell className="font-medium">
+                            <div>{item.farmerName}</div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Sprout className="h-3 w-3 text-green-600" />
+                              {item.crop || 'Unknown'}
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {item.quantity ? `${item.quantity.toFixed(1)}t` : '-'}
+                            {item.receivedQuantity && (
+                              <div className="text-xs text-green-600">
+                                ✓ {item.receivedQuantity.toFixed(1)}t received
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {formatDate(item.deliveryDate)}
+                          </TableCell>
+                          <TableCell>
+                            {item.daysUntilDelivery === 0 ? (
+                              <Badge variant="default" className="bg-green-600">Today</Badge>
+                            ) : item.daysUntilDelivery === 1 ? (
+                              <Badge variant="outline" className="bg-green-50 text-green-700">
+                                Tomorrow
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline">
+                                {item.daysUntilDelivery} days
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {getOrderStatusBadge(item.orderStatus)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
                     </TableBody>
                   </Table>
                 </div>
@@ -627,33 +647,21 @@ export default function Procurement() {
           </Card>
         </TabsContent>
 
-        {/* Allocations Tab */}
-        <TabsContent value="allocations" className="animate-fade-in space-y-6">
+        {/* Delivery Timeline Tab */}
+        <TabsContent value="timeline" className="animate-fade-in space-y-6">
           <Card>
             <CardHeader>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                   <CardTitle className="flex items-center gap-2">
-                    <Package className="h-5 w-5 text-primary" />
-                    All Allocations Timeline
+                    <Calendar className="h-5 w-5 text-primary" />
+                    Delivery Timeline
                   </CardTitle>
                   <CardDescription>
-                    View all allocated farmers and their order status
+                    All scheduled deliveries and order status
                   </CardDescription>
                 </div>
                 <div className="flex gap-2">
-                  <div className="flex items-center gap-2">
-                    <Filter className="h-4 w-4 text-muted-foreground" />
-                    <select
-                      value={selectedDateFilter}
-                      onChange={(e) => setSelectedDateFilter(e.target.value)}
-                      className="text-sm border rounded-md px-3 py-1 bg-background"
-                    >
-                      <option value="all">All Dates</option>
-                      <option value="upcoming">Upcoming</option>
-                      <option value="past">Past</option>
-                    </select>
-                  </div>
                   <Button 
                     size="sm"
                     variant="outline"
@@ -666,113 +674,122 @@ export default function Procurement() {
             </CardHeader>
             
             <CardContent>
-              {Object.keys(groupedAllocations).length === 0 ? (
+              {deliveryTimeline.length === 0 ? (
                 <div className="text-center py-12">
                   <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
-                    <Package className="h-8 w-8 text-gray-400" />
+                    <Calendar className="h-8 w-8 text-gray-400" />
                   </div>
                   <h3 className="text-lg font-semibold text-gray-700 mb-2">
-                    No Allocations Found
+                    No Deliveries Scheduled
                   </h3>
                   <p className="text-gray-500 mb-6 max-w-md mx-auto">
-                    {selectedDateFilter === 'all' 
-                      ? 'No allocations have been created yet. Allocate farmers in the Farmers page first.'
-                      : selectedDateFilter === 'upcoming'
-                      ? 'No upcoming allocations found.'
-                      : 'No past allocations found.'
-                    }
+                    Schedule deliveries in the Farmers or Supply Planning sections.
+                    Once scheduled, they will appear here.
                   </p>
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {Object.entries(groupedAllocations).map(([date, dateAllocations]) => (
-                    <div key={date} className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="text-lg font-semibold">
-                            {formatDate(date)}
-                          </h3>
-                          <div className="flex items-center gap-3 mt-1">
-                            <Badge variant="secondary">
-                              {dateAllocations.length} farmer{dateAllocations.length !== 1 ? 's' : ''}
-                            </Badge>
-                            <span className="text-sm text-muted-foreground">
-                              {dateAllocations.reduce((sum, a) => sum + (a.quantity || 0), 0).toFixed(1)} tons
-                            </span>
-                          </div>
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {new Date(date) < new Date() ? 'Past' : 'Upcoming'}
-                        </div>
-                      </div>
+                  {/* Group by week */}
+                  {(() => {
+                    const groupedByWeek = {};
+                    deliveryTimeline.forEach(item => {
+                      const deliveryDate = new Date(item.deliveryDate);
+                      const weekStart = new Date(deliveryDate);
+                      weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Start of week (Sunday)
+                      const weekKey = weekStart.toDateString();
                       
-                      <div className="rounded-lg border overflow-hidden">
-                        <Table>
-                          <TableHeader>
-                            <TableRow className="bg-muted/50">
-                              <TableHead>Farmer</TableHead>
-                              <TableHead>Crop</TableHead>
-                              <TableHead>Location</TableHead>
-                              <TableHead>Allocated</TableHead>
-                              <TableHead>Status</TableHead>
-                              <TableHead>Order Details</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {dateAllocations.map((allocation) => {
-                              const relatedOrder = getRelatedOrder(allocation);
-                              
-                              return (
-                                <TableRow key={allocation.id}>
-                                  <TableCell className="font-medium">
-                                    <div>
-                                      <p>{allocation.farmerName}</p>
-                                      <p className="text-xs text-muted-foreground">
-                                        {allocation.farmerPhone || 'No phone'}
-                                      </p>
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    {allocation.farmerCrop || '-'}
-                                  </TableCell>
-                                  <TableCell>
-                                    {allocation.farmerCounty || '-'}
-                                  </TableCell>
-                                  <TableCell className="font-medium">
-                                    {allocation.quantity?.toFixed(1) || '0'} tons
-                                  </TableCell>
-                                  <TableCell>
-                                    {getStatusBadge(allocation.status)}
-                                  </TableCell>
-                                  <TableCell>
-                                    {relatedOrder ? (
-                                      <div className="space-y-1">
-                                        <div className="flex items-center gap-1">
-                                          {getOrderStatusBadge(relatedOrder)}
-                                        </div>
-                                        <div className="text-xs text-muted-foreground">
-                                          Ordered: {relatedOrder.quantityOrdered?.toFixed(1) || '0'}t
-                                          {relatedOrder.quantityAccepted && (
-                                            <span className="text-green-600 ml-2">
-                                              ✓ {relatedOrder.quantityAccepted.toFixed(1)}t accepted
-                                            </span>
-                                          )}
-                                        </div>
-                                      </div>
-                                    ) : (
-                                      <Badge variant="outline" className="text-gray-600">
-                                        No Order
-                                      </Badge>
+                      if (!groupedByWeek[weekKey]) {
+                        groupedByWeek[weekKey] = [];
+                      }
+                      groupedByWeek[weekKey].push(item);
+                    });
+                    
+                    return Object.entries(groupedByWeek)
+                      .sort(([weekA], [weekB]) => new Date(weekA) - new Date(weekB))
+                      .map(([weekStart, weekItems]) => {
+                        const weekStartDate = new Date(weekStart);
+                        const weekEnd = new Date(weekStartDate);
+                        weekEnd.setDate(weekEnd.getDate() + 6);
+                        
+                        const totalWeekTons = weekItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
+                        const receivedWeekTons = weekItems.reduce((sum, item) => sum + (item.receivedQuantity || 0), 0);
+                        
+                        return (
+                          <div key={weekStart} className="space-y-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h3 className="text-lg font-semibold">
+                                  Week of {weekStartDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                </h3>
+                                <div className="flex items-center gap-3 mt-1">
+                                  <Badge variant="secondary">
+                                    {weekItems.length} delivery{weekItems.length !== 1 ? 's' : ''}
+                                  </Badge>
+                                  <span className="text-sm text-muted-foreground">
+                                    {totalWeekTons.toFixed(1)} tons total
+                                    {receivedWeekTons > 0 && (
+                                      <span className="text-green-600 ml-2">
+                                        ✓ {receivedWeekTons.toFixed(1)}t received
+                                      </span>
                                     )}
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </div>
-                  ))}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                              </div>
+                            </div>
+                            
+                            <div className="rounded-lg border overflow-hidden">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow className="bg-muted/50">
+                                    <TableHead>Date</TableHead>
+                                    <TableHead>Farmer</TableHead>
+                                    <TableHead>Crop</TableHead>
+                                    <TableHead>Allocated</TableHead>
+                                    <TableHead>Ordered</TableHead>
+                                    <TableHead>Received</TableHead>
+                                    <TableHead>Status</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {weekItems.map(item => (
+                                    <TableRow key={item.id}>
+                                      <TableCell className="font-medium">
+                                        {formatDate(item.deliveryDate)}
+                                      </TableCell>
+                                      <TableCell>
+                                        <div className="font-medium">{item.farmerName}</div>
+                                      </TableCell>
+                                      <TableCell>
+                                        {item.crop || '-'}
+                                      </TableCell>
+                                      <TableCell className="font-medium">
+                                        {item.quantity ? `${item.quantity.toFixed(1)}t` : '-'}
+                                      </TableCell>
+                                      <TableCell>
+                                        {item.orderQuantity ? `${item.orderQuantity.toFixed(1)}t` : '-'}
+                                      </TableCell>
+                                      <TableCell>
+                                        {item.receivedQuantity ? (
+                                          <div className="font-medium text-green-600">
+                                            {item.receivedQuantity.toFixed(1)}t
+                                          </div>
+                                        ) : '-'}
+                                      </TableCell>
+                                      <TableCell>
+                                        {getOrderStatusBadge(item.orderStatus)}
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          </div>
+                        );
+                      });
+                  })()}
                 </div>
               )}
             </CardContent>
@@ -787,10 +804,10 @@ export default function Procurement() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Users className="h-5 w-5 text-primary" />
-                  Aggregator Network
+                  Request from Aggregators
                 </CardTitle>
                 <CardDescription>
-                  Request additional supply from trusted aggregators
+                  Fill deficits from trusted aggregator partners
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -801,17 +818,26 @@ export default function Procurement() {
                         <Users className="h-6 w-6 text-gray-400" />
                       </div>
                       <p className="text-gray-500 mb-4">No aggregators in your network</p>
-                      <Button variant="outline" onClick={() => {
-                        // Navigate to aggregators page
-                        window.location.href = '/aggregators';
-                      }}>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => window.location.href = '/aggregators'}
+                      >
                         Manage Aggregators
                       </Button>
                     </div>
                   ) : (
                     <>
+                      <div className="p-3 bg-blue-50 rounded-lg">
+                        <p className="text-sm text-blue-700">
+                          Current deficit: <span className="font-bold">{metrics.deficit} tons</span>
+                        </p>
+                        <p className="text-sm text-blue-600 mt-1">
+                          Select an aggregator to request additional supply
+                        </p>
+                      </div>
+                      
                       <div className="space-y-3">
-                        {aggregators.slice(0, 3).map(aggregator => (
+                        {aggregators.map(aggregator => (
                           <div key={aggregator.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
                             <div>
                               <p className="font-medium">{aggregator.name}</p>
@@ -820,7 +846,7 @@ export default function Procurement() {
                               </p>
                               <div className="flex items-center gap-2 mt-1">
                                 <Badge variant="outline" className="text-xs">
-                                  {aggregator.historical_volume || 0} tons
+                                  {aggregator.historical_volume || 0} tons capacity
                                 </Badge>
                                 <Badge variant="outline" className="text-xs">
                                   {aggregator.reliability_score || 0}% reliable
@@ -829,10 +855,9 @@ export default function Procurement() {
                             </div>
                             <Button
                               size="sm"
-                              variant="outline"
                               onClick={() => {
                                 setSelectedAggregator(aggregator);
-                                setIsSendRequestDialogOpen(true);
+                                setIsAggregatorDialogOpen(true);
                               }}
                             >
                               Request
@@ -841,31 +866,12 @@ export default function Procurement() {
                         ))}
                       </div>
                       
-                      {aggregators.length > 3 && (
-                        <div className="text-center">
-                          <p className="text-sm text-muted-foreground">
-                            +{aggregators.length - 3} more aggregators
-                          </p>
-                          <Button
-                            variant="link"
-                            size="sm"
-                            onClick={() => {
-                              window.location.href = '/aggregators';
-                            }}
-                          >
-                            View all aggregators
-                          </Button>
-                        </div>
-                      )}
-                      
                       <Button
                         className="w-full"
-                        onClick={() => {
-                          setIsSendRequestDialogOpen(true);
-                        }}
+                        onClick={() => setIsAggregatorDialogOpen(true)}
                       >
-                        <ShoppingCart className="h-4 w-4 mr-2" />
-                        Request from Aggregator
+                        <Send className="h-4 w-4 mr-2" />
+                        Send Request to Aggregator
                       </Button>
                     </>
                   )}
@@ -878,24 +884,24 @@ export default function Procurement() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <ExternalLink className="h-5 w-5 text-primary" />
-                  FarmMall (External)
+                  FarmMall Marketplace
                 </CardTitle>
                 <CardDescription>
-                  Access external marketplace for additional supply
+                  External marketplace for spot purchases
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <h4 className="font-medium text-blue-800 mb-2">About FarmMall</h4>
-                    <p className="text-sm text-blue-700">
-                      FarmMall is an external agricultural marketplace connecting buyers with verified suppliers across the region.
+                  <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                    <h4 className="font-medium text-green-800 mb-2">About FarmMall</h4>
+                    <p className="text-sm text-green-700">
+                      Access a wide network of verified suppliers for immediate spot purchases.
                     </p>
-                    <ul className="text-sm text-blue-600 mt-3 space-y-1">
+                    <ul className="text-sm text-green-600 mt-3 space-y-1">
                       <li>• Verified suppliers with quality ratings</li>
-                      <li>• Competitive market prices</li>
-                      <li>• Multiple crop varieties available</li>
-                      <li>• Escrow payment protection</li>
+                      <li>• Competitive spot market prices</li>
+                      <li>• Quick delivery (24-72 hours)</li>
+                      <li>• Multiple payment options</li>
                     </ul>
                   </div>
                   
@@ -927,12 +933,10 @@ export default function Procurement() {
                     
                     <Button
                       className="w-full"
-                      onClick={() => {
-                        setIsSupplementDialogOpen(true);
-                      }}
+                      onClick={() => setIsSupplementDialogOpen(true)}
                     >
                       <ShoppingCart className="h-4 w-4 mr-2" />
-                      Request Supplement
+                      Request Supplement via FarmMall
                     </Button>
                   </div>
                 </div>
@@ -946,23 +950,29 @@ export default function Procurement() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <TrendingDown className="h-5 w-5 text-red-600" />
-                  Deficit Analysis
+                  Deficit Analysis & Recommendations
                 </CardTitle>
                 <CardDescription>
-                  Breakdown of current supply deficit
+                  Analysis of current supply gap and suggested actions
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">Total Deficit</p>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Current Deficit</p>
                       <p className="text-3xl font-bold text-red-600">{metrics.deficit} tons</p>
+                      <p className="text-sm text-muted-foreground">
+                        {metrics.deficitPercentage}% of allocated supply
+                      </p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm text-muted-foreground">Coverage</p>
-                      <p className="text-2xl font-bold">
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Coverage Rate</p>
+                      <p className="text-3xl font-bold">
                         {((parseFloat(metrics.totalReceived) / parseFloat(metrics.totalAllocated) * 100) || 0).toFixed(1)}%
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {metrics.totalReceived} / {metrics.totalAllocated} tons
                       </p>
                     </div>
                   </div>
@@ -978,16 +988,31 @@ export default function Procurement() {
                     />
                   </div>
                   
-                  <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
-                    <h4 className="font-medium text-amber-800 mb-2">Recommendation</h4>
-                    <p className="text-sm text-amber-700">
-                      Based on your deficit of {metrics.deficit} tons, we recommend:
-                    </p>
-                    <ul className="text-sm text-amber-600 mt-2 space-y-1">
-                      <li>• Request {metrics.deficit} tons from aggregators for reliability</li>
-                      <li>• Check FarmMall for competitive spot prices</li>
-                      <li>• Review upcoming allocations for potential acceleration</li>
-                    </ul>
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <h4 className="font-medium text-blue-800 mb-2">Recommended Actions</h4>
+                    <div className="space-y-2 text-sm text-blue-700">
+                      <div className="flex items-start gap-2">
+                        <div className="mt-0.5">1.</div>
+                        <div>
+                          <span className="font-medium">Request {metrics.deficit} tons from aggregators</span>
+                          <p className="text-blue-600">For reliability and established relationships</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <div className="mt-0.5">2.</div>
+                        <div>
+                          <span className="font-medium">Check FarmMall for competitive prices</span>
+                          <p className="text-blue-600">For quick spot purchases and price comparison</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <div className="mt-0.5">3.</div>
+                        <div>
+                          <span className="font-medium">Review upcoming deliveries</span>
+                          <p className="text-blue-600">Consider accelerating {metrics.upcomingCount} upcoming deliveries</p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -1002,7 +1027,7 @@ export default function Procurement() {
           <DialogHeader>
             <DialogTitle>Request Additional Supply</DialogTitle>
             <DialogDescription>
-              Send supplement request to aggregators or FarmMall
+              Send supplement request via FarmMall or broadcast to all aggregators
             </DialogDescription>
           </DialogHeader>
           
@@ -1014,26 +1039,27 @@ export default function Procurement() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Quantity Required (tons) *</label>
-              <input
-                type="number"
+              <Label htmlFor="quantity">Quantity Required (tons) *</Label>
+              <Input
+                id="quantity"
                 name="quantity"
+                type="number"
                 value={supplementForm.quantity}
                 onChange={handleSupplementInputChange}
                 placeholder="Enter quantity"
                 min="0.1"
                 step="0.1"
-                className="w-full p-2.5 border border-gray-300 rounded-md bg-white text-sm"
                 required
               />
               <p className="text-xs text-muted-foreground">
-                Based on your deficit of {metrics.deficit} tons
+                Based on current deficit of {metrics.deficit} tons
               </p>
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Urgency Level</label>
+              <Label htmlFor="urgency">Urgency Level</Label>
               <select
+                id="urgency"
                 name="urgency"
                 value={supplementForm.urgency}
                 onChange={handleSupplementInputChange}
@@ -1047,23 +1073,22 @@ export default function Procurement() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Additional Notes</label>
-              <textarea
+              <Label htmlFor="notes">Additional Notes</Label>
+              <Input
+                id="notes"
                 name="notes"
                 value={supplementForm.notes}
                 onChange={handleSupplementInputChange}
-                placeholder="Special requirements, crop specifications, delivery instructions..."
-                rows={3}
-                className="w-full p-2.5 border border-gray-300 rounded-md bg-white text-sm"
+                placeholder="Crop specifications, quality requirements, delivery instructions..."
               />
             </div>
 
             <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-              <p className="text-sm font-medium text-green-700 mb-1">Request will be sent to:</p>
+              <h4 className="font-medium text-green-700 mb-1">Request will be sent to:</h4>
               <ul className="text-sm text-green-600 space-y-1">
-                <li>• All active aggregators in your network</li>
                 <li>• FarmMall marketplace (external)</li>
                 <li>• Email notifications to procurement team</li>
+                <li>• Available aggregators in network</li>
               </ul>
             </div>
           </div>
@@ -1080,22 +1105,22 @@ export default function Procurement() {
         </DialogContent>
       </Dialog>
 
-      {/* Send to Aggregator Dialog */}
-      <Dialog open={isSendRequestDialogOpen} onOpenChange={setIsSendRequestDialogOpen}>
+      {/* Aggregator Request Dialog */}
+      <Dialog open={isAggregatorDialogOpen} onOpenChange={setIsAggregatorDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {selectedAggregator ? `Request from ${selectedAggregator.name}` : 'Request from Aggregator'}
+              {selectedAggregator ? `Request from ${selectedAggregator.name}` : 'Select Aggregator'}
             </DialogTitle>
             <DialogDescription>
-              Send supply request to selected aggregator
+              Send supply request to specific aggregator
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4 py-4">
             {!selectedAggregator ? (
               <div className="space-y-2">
-                <label className="text-sm font-medium">Select Aggregator *</label>
+                <Label>Select Aggregator *</Label>
                 <select
                   className="w-full p-2.5 border border-gray-300 rounded-md bg-white text-sm"
                   onChange={(e) => {
@@ -1117,27 +1142,31 @@ export default function Procurement() {
                 <p className="text-sm text-blue-600">
                   {selectedAggregator.county} • {selectedAggregator.type} • {selectedAggregator.reliability_score || 0}% reliable
                 </p>
+                <p className="text-sm text-blue-600 mt-1">
+                  Historical volume: {selectedAggregator.historical_volume || 0} tons
+                </p>
               </div>
             )}
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Quantity Required (tons) *</label>
-              <input
-                type="number"
+              <Label htmlFor="agg-quantity">Quantity Required (tons) *</Label>
+              <Input
+                id="agg-quantity"
                 name="quantity"
+                type="number"
                 value={supplementForm.quantity}
                 onChange={handleSupplementInputChange}
                 placeholder="Enter quantity"
                 min="0.1"
                 step="0.1"
-                className="w-full p-2.5 border border-gray-300 rounded-md bg-white text-sm"
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Urgency Level</label>
+              <Label htmlFor="agg-urgency">Urgency Level</Label>
               <select
+                id="agg-urgency"
                 name="urgency"
                 value={supplementForm.urgency}
                 onChange={handleSupplementInputChange}
@@ -1151,27 +1180,26 @@ export default function Procurement() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Additional Notes</label>
-              <textarea
+              <Label htmlFor="agg-notes">Additional Notes</Label>
+              <Input
+                id="agg-notes"
                 name="notes"
                 value={supplementForm.notes}
                 onChange={handleSupplementInputChange}
-                placeholder="Special requirements, crop specifications, delivery instructions..."
-                rows={3}
-                className="w-full p-2.5 border border-gray-300 rounded-md bg-white text-sm"
+                placeholder="Special requirements, delivery instructions..."
               />
             </div>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => {
-              setIsSendRequestDialogOpen(false);
+              setIsAggregatorDialogOpen(false);
               setSelectedAggregator(null);
             }}>
               Cancel
             </Button>
             <Button 
-              onClick={handleSendAggregatorRequest} 
+              onClick={handleAggregatorRequest} 
               disabled={!selectedAggregator || !supplementForm.quantity}
             >
               <Send className="h-4 w-4 mr-2" />
