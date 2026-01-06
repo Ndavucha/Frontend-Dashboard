@@ -35,28 +35,21 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Progress } from '@/components/ui/progress';
 import { 
   ClipboardList, 
   Plus, 
-  Star,
   Edit,
   Trash2,
   Loader2,
   Building,
-  TrendingUp,
-  Shield,
-  Users
+  Users,
+  Phone,
+  Mail,
+  User,
+  MapPin
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -64,27 +57,22 @@ import * as z from 'zod';
 import { toast } from 'sonner';
 import { apiService } from '@/api/services';
 
-// Form validation schema
+// Form validation schema - Simplified without removed fields
 const aggregatorSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   county: z.string().min(2, 'County must be at least 2 characters'),
-  type: z.enum(['internal', 'external']),
-  historical_volume: z.coerce.number().min(0, 'Volume must be positive'),
-  reliability_score: z.coerce.number().min(0).max(100, 'Score must be between 0-100'),
-  average_quality: z.coerce.number().min(0).max(100, 'Quality must be between 0-100'),
-  contact_person: z.string().optional(),
-  phone: z.string().optional(),
-  email: z.string().email().optional().or(z.literal('')),
+  contact_person: z.string().min(2, 'Contact person name is required'),
+  phone: z.string().min(10, 'Valid phone number is required'),
+  email: z.string().email('Valid email is required').optional().or(z.literal('')),
+  description: z.string().optional(),
 });
 
 export default function Aggregators() {
   const [aggregators, setAggregators] = useState([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
-    internal_count: 0,
-    external_count: 0,
-    total_volume: 0,
-    avg_reliability: 0
+    total_aggregators: 0,
+    counties_covered: 0,
   });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -97,13 +85,10 @@ export default function Aggregators() {
     defaultValues: {
       name: '',
       county: '',
-      type: 'external',
-      historical_volume: 0,
-      reliability_score: 80,
-      average_quality: 85,
       contact_person: '',
       phone: '',
       email: '',
+      description: '',
     },
   });
 
@@ -127,19 +112,18 @@ export default function Aggregators() {
         ? aggregatorsResponse 
         : [];
       
+      // Calculate unique counties
+      const uniqueCounties = [...new Set(aggregatorsData.map(agg => agg.county).filter(Boolean))];
+      
       // Ensure stats has proper structure
       const statsData = statsResponse && typeof statsResponse === 'object'
         ? {
-            internal_count: statsResponse.internal_count || 0,
-            external_count: statsResponse.external_count || 0,
-            total_volume: statsResponse.total_volume || 0,
-            avg_reliability: statsResponse.avg_reliability || 0
+            total_aggregators: statsResponse.total_aggregators || aggregatorsData.length,
+            counties_covered: statsResponse.counties_covered || uniqueCounties.length
           }
         : {
-            internal_count: 0,
-            external_count: 0,
-            total_volume: 0,
-            avg_reliability: 0
+            total_aggregators: aggregatorsData.length,
+            counties_covered: uniqueCounties.length
           };
       
       setAggregators(aggregatorsData);
@@ -151,10 +135,8 @@ export default function Aggregators() {
       // Set to empty arrays/objects on error
       setAggregators([]);
       setStats({
-        internal_count: 0,
-        external_count: 0,
-        total_volume: 0,
-        avg_reliability: 0
+        total_aggregators: 0,
+        counties_covered: 0,
       });
     } finally {
       setLoading(false);
@@ -201,13 +183,10 @@ export default function Aggregators() {
     form.reset({
       name: aggregator.name || '',
       county: aggregator.county || '',
-      type: aggregator.type || 'external',
-      historical_volume: aggregator.historical_volume || 0,
-      reliability_score: aggregator.reliability_score || 80,
-      average_quality: aggregator.average_quality || 85,
       contact_person: aggregator.contact_person || '',
       phone: aggregator.phone || '',
       email: aggregator.email || '',
+      description: aggregator.description || '',
     });
     setIsDialogOpen(true);
   };
@@ -246,7 +225,6 @@ export default function Aggregators() {
       </h3>
       <p className="text-gray-500 mb-6 max-w-md mx-auto">
         Start building your aggregator network by adding your first aggregator partner.
-        Track their performance, reliability, and volumes.
       </p>
       <Button onClick={() => setIsDialogOpen(true)}>
         <Plus className="h-4 w-4 mr-2" />
@@ -260,7 +238,7 @@ export default function Aggregators() {
     return (
       <DashboardLayout
         title="Aggregators"
-        description="Manage internal and external aggregator partnerships"
+        description="Manage aggregator partnerships"
       >
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
@@ -275,18 +253,18 @@ export default function Aggregators() {
   return (
     <DashboardLayout
       title="Aggregators"
-      description="Manage internal and external aggregator partnerships"
+      description="Manage aggregator partnerships"
     >
-      {/* Summary Cards - Using actual stats data */}
-      <div className="grid gap-4 md:grid-cols-4 mb-6">
+      {/* Summary Cards - Simplified stats */}
+      <div className="grid gap-4 md:grid-cols-2 mb-6">
         <Card>
           <CardContent className="pt-6">
             <div className="text-center">
               <div className="flex items-center justify-center mb-2">
                 <Building className="h-5 w-5 text-blue-600 mr-2" />
-                <p className="text-2xl font-bold">{stats.internal_count || 0}</p>
+                <p className="text-2xl font-bold">{stats.total_aggregators || 0}</p>
               </div>
-              <p className="text-sm text-muted-foreground">Internal Aggregators</p>
+              <p className="text-sm text-muted-foreground">Total Aggregators</p>
             </div>
           </CardContent>
         </Card>
@@ -295,31 +273,9 @@ export default function Aggregators() {
             <div className="text-center">
               <div className="flex items-center justify-center mb-2">
                 <Users className="h-5 w-5 text-green-600 mr-2" />
-                <p className="text-2xl font-bold">{stats.external_count || 0}</p>
+                <p className="text-2xl font-bold">{stats.counties_covered || 0}</p>
               </div>
-              <p className="text-sm text-muted-foreground">External Aggregators</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <div className="flex items-center justify-center mb-2">
-                <TrendingUp className="h-5 w-5 text-amber-600 mr-2" />
-                <p className="text-2xl font-bold">{stats.total_volume || 0}</p>
-              </div>
-              <p className="text-sm text-muted-foreground">Total Volume (tons)</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <div className="flex items-center justify-center mb-2">
-                <Shield className="h-5 w-5 text-purple-600 mr-2" />
-                <p className="text-2xl font-bold">{stats.avg_reliability || 0}%</p>
-              </div>
-              <p className="text-sm text-muted-foreground">Avg. Reliability</p>
+              <p className="text-sm text-muted-foreground">Counties Covered</p>
             </div>
           </CardContent>
         </Card>
@@ -400,79 +356,13 @@ export default function Aggregators() {
                   />
                 </div>
                 
-                <FormField
-                  control={form.control}
-                  name="type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Aggregator Type *</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="internal">Internal</SelectItem>
-                          <SelectItem value="external">External</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <div className="grid grid-cols-3 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="historical_volume"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Volume (tons) *</FormLabel>
-                        <FormControl>
-                          <Input type="number" placeholder="0" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="reliability_score"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Reliability % *</FormLabel>
-                        <FormControl>
-                          <Input type="number" placeholder="80" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="average_quality"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Quality % *</FormLabel>
-                        <FormControl>
-                          <Input type="number" placeholder="85" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="contact_person"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Contact Person</FormLabel>
+                        <FormLabel>Contact Person *</FormLabel>
                         <FormControl>
                           <Input placeholder="John Doe" {...field} />
                         </FormControl>
@@ -486,7 +376,7 @@ export default function Aggregators() {
                     name="phone"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Phone Number</FormLabel>
+                        <FormLabel>Phone Number *</FormLabel>
                         <FormControl>
                           <Input placeholder="+254 712 345678" {...field} />
                         </FormControl>
@@ -501,9 +391,23 @@ export default function Aggregators() {
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email</FormLabel>
+                      <FormLabel>Email Address</FormLabel>
                       <FormControl>
                         <Input type="email" placeholder="contact@example.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description (Optional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Brief description of services..." {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -551,12 +455,16 @@ export default function Aggregators() {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <CardTitle className="text-base">{agg.name || 'Unnamed Aggregator'}</CardTitle>
-                    <CardDescription>{agg.county || 'No county specified'}</CardDescription>
+                    <CardDescription>
+                      <div className="flex items-center gap-2 mt-1">
+                        <MapPin className="h-3 w-3 text-muted-foreground" />
+                        <Badge variant="outline">
+                          {agg.county || 'No county'}
+                        </Badge>
+                      </div>
+                    </CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant={agg.type === 'internal' ? 'farmer' : 'aggregator'}>
-                      {agg.type === 'internal' ? 'Internal' : 'External'}
-                    </Badge>
                     <div className="flex opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button
                         variant="ghost"
@@ -579,51 +487,31 @@ export default function Aggregators() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-3 gap-4 text-center">
-                  <div>
-                    <p className="text-xl font-bold text-primary">{agg.historical_volume || 0}</p>
-                    <p className="text-xs text-muted-foreground">Total Volume (t)</p>
+                {/* Contact Information */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">{agg.contact_person || 'No contact person'}</span>
                   </div>
-                  <div>
-                    <p className="text-xl font-bold text-success">{agg.reliability_score || 0}%</p>
-                    <p className="text-xs text-muted-foreground">Reliability</p>
+                  
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">{agg.phone || 'No phone number'}</span>
                   </div>
-                  <div>
-                    <p className="text-xl font-bold text-secondary">{agg.average_quality || 0}%</p>
-                    <p className="text-xs text-muted-foreground">Quality Score</p>
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Performance Rating</span>
-                    <div className="flex items-center gap-1">
-                      {[...Array(5)].map((_, i) => (
-                        <Star
-                          key={i}
-                          className={`h-3 w-3 ${
-                            i < Math.round((agg.reliability_score || 0) / 20)
-                              ? 'fill-amber-500 text-amber-500'
-                              : 'text-gray-300'
-                          }`}
-                        />
-                      ))}
+                  
+                  {agg.email && (
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm truncate">{agg.email}</span>
                     </div>
-                  </div>
-                  <Progress value={agg.reliability_score || 0} className="h-2" />
+                  )}
                 </div>
                 
-                {(agg.contact_person || agg.phone || agg.email) && (
-                  <div className="pt-3 border-t text-xs text-muted-foreground space-y-1">
-                    {agg.contact_person && (
-                      <p className="truncate">Contact: {agg.contact_person}</p>
-                    )}
-                    {agg.phone && (
-                      <p className="truncate">Phone: {agg.phone}</p>
-                    )}
-                    {agg.email && (
-                      <p className="truncate">Email: {agg.email}</p>
-                    )}
+                {/* Description */}
+                {agg.description && (
+                  <div className="pt-3 border-t">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Description:</p>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{agg.description}</p>
                   </div>
                 )}
               </CardContent>
@@ -639,7 +527,7 @@ export default function Aggregators() {
             <AlertDialogTitle>Delete Aggregator</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete "{aggregatorToDelete?.name}"? 
-              This action cannot be undone and all associated data will be removed.
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
