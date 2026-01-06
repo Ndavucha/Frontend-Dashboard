@@ -57,22 +57,14 @@ import {
   PackageX,
   FileText,
   Calendar,
-  UserCheck,
-  UserX,
-  Receipt,
-  ClipboardCheck,
-  ClipboardX,
   Mail,
   Phone,
   MessageSquare,
   Send,
-  User,
-  Users,
-  Copy,
-  MapPin,
   Sprout,
   RefreshCw,
-  Bug
+  Users,
+  MapPin
 } from 'lucide-react';
 import { apiService } from '@/api/services';
 import { toast } from 'sonner';
@@ -86,8 +78,6 @@ export default function Procurement() {
   const [supplyAllocations, setSupplyAllocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [debugData, setDebugData] = useState({});
-  const [showDebug, setShowDebug] = useState(false);
   
   // Dialog states
   const [isStep1DialogOpen, setIsStep1DialogOpen] = useState(false);
@@ -149,7 +139,6 @@ export default function Procurement() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      console.log('🔄 Fetching procurement data...');
       
       // Fetch all data in parallel
       const [ordersData, farmersData, aggregatorsData, allocationsData] = await Promise.all([
@@ -179,6 +168,29 @@ export default function Procurement() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // SIMPLE SOLUTION: Get farmers with scheduled allocations
+  const getFarmersWithAllocations = () => {
+    if (!supplyAllocations?.length || !farmers?.length) {
+      return [];
+    }
+
+    // Get scheduled allocations
+    const scheduledAllocations = supplyAllocations.filter(a => a?.status === 'scheduled');
+    
+    // Get unique farmer IDs from scheduled allocations
+    const farmerIds = [...new Set(scheduledAllocations.map(a => a.farmerId))];
+    
+    // Get farmer objects with their allocations
+    const farmersWithAllocs = farmers
+      .filter(farmer => farmerIds.includes(farmer.id))
+      .map(farmer => ({
+        ...farmer,
+        allocations: scheduledAllocations.filter(a => a.farmerId === farmer.id)
+      }));
+    
+    return farmersWithAllocs;
+  };
 
   // Filter orders based on search
   const filteredOrders = orders.filter(order => {
@@ -231,59 +243,21 @@ export default function Procurement() {
 
   const stats = calculateStats();
 
-  // SIMPLE FIX: Get farmers from supply allocations directly
-  const getFarmersWithAllocations = () => {
-    if (!supplyAllocations?.length) {
-      return [];
-    }
-
-    // Get only scheduled allocations
-    const scheduledAllocations = supplyAllocations.filter(a => a?.status === 'scheduled');
-    
-    if (scheduledAllocations.length === 0) {
-      return [];
-    }
-
-    // Create farmer objects directly from allocation data
-    const farmersFromAllocations = scheduledAllocations.map(allocation => ({
-      id: allocation.farmerId,
-      name: allocation.farmerName,
-      county: allocation.farmerCounty,
-      crop: allocation.farmerCrop,
-      phone: allocation.farmerPhone,
-      email: allocation.farmerEmail,
-      contact: allocation.farmerContact,
-      allocationDate: allocation.date,
-      allocationQuantity: allocation.quantity,
-      allocationNotes: allocation.notes,
-      allocationId: allocation.id
-    }));
-
-    // Remove duplicates (same farmer with multiple allocations)
-    const uniqueFarmers = [];
-    const seenIds = new Set();
-    
-    farmersFromAllocations.forEach(farmer => {
-      if (!seenIds.has(farmer.id)) {
-        seenIds.add(farmer.id);
-        uniqueFarmers.push(farmer);
-      }
-    });
-
-    return uniqueFarmers;
-  };
-
   // Handle Step 1 form input changes
   const handleStep1InputChange = (e) => {
     const { name, value } = e.target;
     setStep1Form(prev => ({ ...prev, [name]: value }));
   };
 
-  // Handle Step 1 select changes - SIMPLIFIED
-  const handleStep1SelectChange = (name, value) => {
-    setStep1Form(prev => ({ ...prev, [name]: value }));
+  // Handle Step 1 select changes - SIMPLIFIED VERSION
+  const handleStep1SelectChange = (field, value) => {
+    setStep1Form(prev => ({ 
+      ...prev, 
+      [field]: value 
+    }));
     
-    if (name === 'supplierType') {
+    // Reset dependent fields when supplier type changes
+    if (field === 'supplierType') {
       setStep1Form(prev => ({
         ...prev,
         farmerId: '',
@@ -299,40 +273,33 @@ export default function Procurement() {
       }));
     }
     
-    // When farmer is selected, auto-fill their details from allocation
-    if (name === 'farmerId' && value) {
-      // Find the farmer from our allocations list
-      const farmerFromAllocation = getFarmersWithAllocations().find(f => f.id.toString() === value.toString());
+    // When farmer is selected, auto-fill
+    if (field === 'farmerId' && value) {
+      const farmersWithAllocs = getFarmersWithAllocations();
+      const selectedFarmer = farmersWithAllocs.find(f => f.id.toString() === value.toString());
       
-      if (farmerFromAllocation) {
-        // Find all scheduled allocations for this farmer
-        const farmerAllocations = supplyAllocations.filter(a => 
-          a?.farmerId?.toString() === value?.toString() && 
-          a?.status === 'scheduled'
-        );
-        
-        // Use the first allocation for auto-fill
-        const firstAllocation = farmerAllocations[0];
+      if (selectedFarmer) {
+        const firstAllocation = selectedFarmer.allocations?.[0];
         
         setStep1Form(prev => ({
           ...prev,
-          supplierName: farmerFromAllocation.name || '',
-          supplierContact: farmerFromAllocation.contact || farmerFromAllocation.name || '',
-          supplierPhone: farmerFromAllocation.phone || '',
-          supplierEmail: farmerFromAllocation.email || '',
+          supplierName: selectedFarmer.name || '',
+          supplierContact: selectedFarmer.contact || '',
+          supplierPhone: selectedFarmer.phone || '',
+          supplierEmail: selectedFarmer.email || '',
           isContracted: 'yes',
-          cropName: farmerFromAllocation.crop || '',
+          cropName: selectedFarmer.crop || '',
           quantityOrdered: firstAllocation?.quantity?.toString() || '',
           deliveryDate: firstAllocation?.date ? new Date(firstAllocation.date).toISOString().split('T')[0] : '',
-          pricePerUnit: '15000', // Default price
+          pricePerUnit: '15000',
           lpoNumber: `LPO-${new Date().getFullYear()}-${String(orders.length + 1).padStart(3, '0')}`
         }));
       }
     }
     
-    // When aggregator is selected, auto-fill their details
-    if (name === 'aggregatorId' && value) {
-      const aggregator = aggregators.find(a => a?.id?.toString() === value?.toString());
+    // When aggregator is selected
+    if (field === 'aggregatorId' && value) {
+      const aggregator = aggregators.find(a => a.id.toString() === value.toString());
       if (aggregator) {
         setStep1Form(prev => ({
           ...prev,
@@ -361,11 +328,6 @@ export default function Procurement() {
       
       return updated;
     });
-  };
-
-  // Handle Step 2 select changes
-  const handleStep2SelectChange = (name, value) => {
-    setStep2Form(prev => ({ ...prev, [name]: value }));
   };
 
   // Handle payment form changes
@@ -397,19 +359,6 @@ export default function Procurement() {
       lpoNumber: '',
       orderDate: new Date().toISOString().split('T')[0],
       deliveryDate: '',
-      notes: ''
-    });
-  };
-
-  // Reset Step 2 form
-  const resetStep2Form = () => {
-    setStep2Form({
-      orderId: '',
-      quantityDelivered: '',
-      quantityAccepted: '',
-      quantityRejected: '',
-      rejectionReason: '',
-      actualDeliveryDate: new Date().toISOString().split('T')[0],
       notes: ''
     });
   };
@@ -446,21 +395,15 @@ export default function Procurement() {
 
       // Add farmer-specific data
       if (step1Form.supplierType === 'farmer' && step1Form.farmerId) {
-        // Find the farmer from allocations
-        const farmerFromAllocation = getFarmersWithAllocations().find(f => 
-          f.id.toString() === step1Form.farmerId.toString()
-        );
-        
-        if (farmerFromAllocation) {
-          newOrder.farmerId = farmerFromAllocation.id;
-          newOrder.farmerContractNumber = `CONTRACT-${farmerFromAllocation.id}`;
-          newOrder.farmerCounty = farmerFromAllocation.county;
-          newOrder.supplierPhone = farmerFromAllocation.phone || '';
-          newOrder.supplierEmail = farmerFromAllocation.email || '';
+        const selectedFarmer = farmers.find(f => f.id.toString() === step1Form.farmerId.toString());
+        if (selectedFarmer) {
+          newOrder.farmerId = selectedFarmer.id;
+          newOrder.farmerContractNumber = selectedFarmer.contractNumber;
+          newOrder.farmerCounty = selectedFarmer.county;
           
-          // Mark the allocation as used (convert to in-progress)
+          // Update allocation status to in-progress
           const allocation = supplyAllocations.find(a => 
-            a?.farmerId?.toString() === farmerFromAllocation.id?.toString() && 
+            a.farmerId === selectedFarmer.id && 
             a.status === 'scheduled'
           );
           if (allocation) {
@@ -473,115 +416,20 @@ export default function Procurement() {
         }
       }
 
-      // Add aggregator-specific data
-      if (step1Form.supplierType === 'aggregator' && step1Form.aggregatorId) {
-        newOrder.aggregatorId = parseInt(step1Form.aggregatorId);
-      }
-
       // Save to backend
-      const createdOrder = await apiService.procurement.createOrder(newOrder);
+      await apiService.procurement.createOrder(newOrder);
       
-      toast.success('Order created successfully! You can now send notifications to the supplier.');
+      toast.success('Order created successfully!');
       setIsStep1DialogOpen(false);
       resetStep1Form();
       
       // Refresh data
       await fetchData();
-      
-      // Switch to Step 1 tab to see the new order
       setActiveTab('step1');
       
     } catch (error) {
       console.error('❌ Error creating order:', error);
       toast.error(error.response?.data?.error || 'Failed to create order');
-    }
-  };
-
-  // Action buttons for sending order notifications
-  const handleSendOrder = (order, method) => {
-    if (!order.supplierPhone && !order.supplierEmail) {
-      toast.error('Supplier contact information not available');
-      return;
-    }
-    
-    const orderDetails = `
-Order Details:
-• Order #${order.id}
-• Crop: ${order.cropName}
-• Quantity: ${order.quantityOrdered} tons
-• Delivery Date: ${new Date(order.deliveryDate).toLocaleDateString()}
-• LPO: ${order.lpoNumber}
-• Price per ton: KES ${order.pricePerUnit?.toLocaleString()}
-• Total Value: KES ${(order.quantityOrdered * order.pricePerUnit).toLocaleString()}`;
-
-    const message = `Hello ${order.supplierName},
-
-Your procurement order has been created:
-
-${orderDetails}
-
-✅ **Please confirm receipt**:
-• Acknowledge receipt of this order
-• Confirm delivery timeline
-• Contact us for any questions
-
-Best regards,
-Procurement Team`;
-    
-    switch (method) {
-      case 'email':
-        if (order.supplierEmail) {
-          const subject = `Procurement Order #${order.id} - ${order.cropName}`;
-          window.open(`mailto:${order.supplierEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`);
-          toast.success(`Email opened for ${order.supplierName}`);
-        } else {
-          toast.error('Supplier email not available');
-        }
-        break;
-      case 'whatsapp':
-        if (order.supplierPhone) {
-          const phoneNumber = order.supplierPhone.replace(/\D/g, '');
-          if (phoneNumber.length >= 10) {
-            const whatsappMessage = `Hello ${order.supplierName},\n\nYour procurement order #${order.id} has been created.\n\n${orderDetails}\n\nPlease confirm receipt.\n\nBest regards,\nProcurement Team`;
-            window.open(`https://wa.me/${phoneNumber}?text=${encodeURIComponent(whatsappMessage)}`);
-            toast.success(`Opening WhatsApp for ${order.supplierName}`);
-          } else {
-            toast.error('Invalid phone number format');
-          }
-        } else {
-          toast.error('Supplier phone number not available');
-        }
-        break;
-      case 'call':
-        if (order.supplierPhone) {
-          const phoneNumber = order.supplierPhone.replace(/\D/g, '');
-          if (phoneNumber.length >= 10) {
-            window.open(`tel:${phoneNumber}`);
-            toast.success(`Initiating call to ${order.supplierName}`);
-          } else {
-            toast.error('Invalid phone number format');
-          }
-        } else {
-          toast.error('Supplier phone number not available');
-        }
-        break;
-      case 'sms':
-        if (order.supplierPhone) {
-          const phoneNumber = order.supplierPhone.replace(/\D/g, '');
-          if (phoneNumber.length >= 10) {
-            const smsMessage = `Hello ${order.supplierName}, your procurement order #${order.id} has been created. ${orderDetails}`;
-            window.open(`sms:${phoneNumber}?body=${encodeURIComponent(smsMessage)}`);
-            toast.success(`Opening SMS for ${order.supplierName}`);
-          } else {
-            toast.error('Invalid phone number format');
-          }
-        } else {
-          toast.error('Supplier phone number not available');
-        }
-        break;
-      default:
-        navigator.clipboard.writeText(message);
-        toast.success('Order details copied to clipboard');
     }
   };
 
@@ -593,7 +441,7 @@ Procurement Team`;
         return;
       }
 
-      const order = orders.find(o => o?.id?.toString() === step2Form.orderId?.toString());
+      const order = orders.find(o => o.id.toString() === step2Form.orderId.toString());
       if (!order) {
         toast.error('Order not found');
         return;
@@ -613,32 +461,23 @@ Procurement Team`;
         actualDeliveryDate: step2Form.actualDeliveryDate || new Date().toISOString().split('T')[0],
         goodsReceived: true,
         status: quantityAccepted > 0 ? 'delivered' : 'rejected',
-        updatedAt: new Date().toISOString(),
-        notes: order.notes ? `${order.notes}\n\nGoods Receipt: ${step2Form.notes}` : `Goods Receipt: ${step2Form.notes}`
+        updatedAt: new Date().toISOString()
       };
-
-      // If this is a farmer order, update the allocation status
-      if (order.farmerId) {
-        const allocation = supplyAllocations.find(a => 
-          a?.farmerId?.toString() === order.farmerId?.toString() && 
-          (a.status === 'in-progress' || a.status === 'scheduled')
-        );
-        if (allocation) {
-          await apiService.supply.updateAllocation(allocation.id, {
-            ...allocation,
-            status: 'completed',
-            deliveredQuantity: quantityAccepted,
-            rejectedQuantity: quantityRejected
-          });
-        }
-      }
 
       // Update order in backend
       await apiService.procurement.updateOrder(order.id, updatedOrder);
       
       toast.success('Goods receipt recorded successfully');
       setIsStep2DialogOpen(false);
-      resetStep2Form();
+      setStep2Form({
+        orderId: '',
+        quantityDelivered: '',
+        quantityAccepted: '',
+        quantityRejected: '',
+        rejectionReason: '',
+        actualDeliveryDate: new Date().toISOString().split('T')[0],
+        notes: ''
+      });
       
       // Refresh data
       await fetchData();
@@ -652,7 +491,7 @@ Procurement Team`;
   // Update Payment Status
   const handleUpdatePayment = async () => {
     try {
-      const order = orders.find(o => o?.id?.toString() === paymentForm.orderId?.toString());
+      const order = orders.find(o => o.id.toString() === paymentForm.orderId.toString());
       if (!order) {
         toast.error('Order not found');
         return;
@@ -665,8 +504,7 @@ Procurement Team`;
         paymentDate: paymentForm.paymentDate,
         paymentMethod: paymentForm.paymentMethod,
         paymentReference: paymentForm.referenceNumber,
-        updatedAt: new Date().toISOString(),
-        notes: order.notes ? `${order.notes}\n\nPayment Update: ${paymentForm.notes}` : `Payment Update: ${paymentForm.notes}`
+        updatedAt: new Date().toISOString()
       };
 
       await apiService.procurement.updateOrder(order.id, updatedOrder);
@@ -674,7 +512,6 @@ Procurement Team`;
       setIsPaymentDialogOpen(false);
       setSelectedOrderForPayment(null);
       
-      // Refresh data
       await fetchData();
       
     } catch (error) {
@@ -686,7 +523,7 @@ Procurement Team`;
   // Update Notes
   const handleUpdateNotes = async () => {
     try {
-      const order = orders.find(o => o?.id?.toString() === notesForm.orderId?.toString());
+      const order = orders.find(o => o.id.toString() === notesForm.orderId.toString());
       if (!order) {
         toast.error('Order not found');
         return;
@@ -694,7 +531,7 @@ Procurement Team`;
 
       const updatedOrder = {
         ...order,
-        notes: order.notes ? `${order.notes}\n\n${new Date().toLocaleString()}: ${notesForm.notes}` : `${new Date().toLocaleString()}: ${notesForm.notes}`,
+        notes: notesForm.notes,
         updatedAt: new Date().toISOString()
       };
 
@@ -703,7 +540,6 @@ Procurement Team`;
       setIsNotesDialogOpen(false);
       setSelectedOrderForNotes(null);
       
-      // Refresh data
       await fetchData();
       
     } catch (error) {
@@ -720,7 +556,6 @@ Procurement Team`;
       setIsDeleteDialogOpen(false);
       setSelectedOrder(null);
       
-      // Refresh data
       await fetchData();
       
     } catch (error) {
@@ -729,100 +564,28 @@ Procurement Team`;
     }
   };
 
-  // Send Bulk Messages
-  const handleSendBulkMessages = (method) => {
-    const pendingOrders = orders.filter(order => !order.goodsReceived);
-    if (pendingOrders.length === 0) {
-      toast.error('No pending orders to send');
-      return;
-    }
-
-    if (method === 'whatsapp') {
-      const ordersSummary = pendingOrders.map(order => 
-        `• Order #${order.id}: ${order.quantityOrdered}t of ${order.cropName} (Due: ${new Date(order.deliveryDate).toLocaleDateString()})`
-      ).join('\n');
-      
-      const message = `📋 **Bulk Order Notification**\n\nPending Orders:\n${ordersSummary}\n\nPlease check your individual orders for details.\n\nBest regards,\nProcurement Team`;
-      
-      navigator.clipboard.writeText(message);
-      toast.success(`Bulk WhatsApp message copied for ${pendingOrders.length} orders`);
-    } else if (method === 'email') {
-      const subject = `Procurement Orders Summary - ${new Date().toLocaleDateString()}`;
-      const body = `Dear Suppliers,\n\nPlease find your pending procurement orders:\n\n${pendingOrders.map(order => 
-        `• Order #${order.id}: ${order.quantityOrdered}t of ${order.cropName} (Due: ${new Date(order.deliveryDate).toLocaleDateString()})`
-      ).join('\n')}\n\nPlease check your individual orders for complete details.\n\nBest regards,\nProcurement Team`;
-      
-      window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
-    }
-  };
-
-  // Open Step 2 Dialog
-  const openStep2Dialog = (order) => {
-    setStep2Form({
-      orderId: order.id.toString(),
-      quantityDelivered: order.quantityOrdered?.toString() || '',
-      quantityAccepted: '',
-      quantityRejected: '',
-      rejectionReason: '',
-      actualDeliveryDate: new Date().toISOString().split('T')[0],
-      notes: ''
-    });
-    setIsStep2DialogOpen(true);
-  };
-
-  // Open Payment Dialog
-  const openPaymentDialog = (order) => {
-    setSelectedOrderForPayment(order);
-    setPaymentForm({
-      orderId: order.id.toString(),
-      paymentStatus: order.paymentStatus || 'pending',
-      amountPaid: order.amountPaid?.toString() || '',
-      paymentDate: new Date().toISOString().split('T')[0],
-      paymentMethod: order.paymentMethod || 'bank_transfer',
-      referenceNumber: order.paymentReference || '',
-      notes: ''
-    });
-    setIsPaymentDialogOpen(true);
-  };
-
-  // Open Notes Dialog
-  const openNotesDialog = (order) => {
-    setSelectedOrderForNotes(order);
-    setNotesForm({
-      orderId: order.id.toString(),
-      notes: ''
-    });
-    setIsNotesDialogOpen(true);
-  };
-
-  // Open Delete Dialog
-  const openDeleteDialog = (order) => {
-    setSelectedOrder(order);
-    setIsDeleteDialogOpen(true);
-  };
-
   // Status badge component
   const getStatusBadge = (order) => {
     if (!order.goodsReceived) {
-      return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 gap-1">
-        <Clock className="h-3 w-3" />
+      return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+        <Clock className="h-3 w-3 mr-1" />
         Ordered
       </Badge>;
     }
     
     if (order.quantityAccepted === 0) {
-      return <Badge variant="destructive" className="gap-1">
-        <PackageX className="h-3 w-3" />
+      return <Badge variant="destructive">
+        <PackageX className="h-3 w-3 mr-1" />
         Rejected
       </Badge>;
     } else if (order.quantityAccepted < order.quantityDelivered) {
-      return <Badge variant="warning" className="gap-1">
-        <AlertTriangle className="h-3 w-3" />
+      return <Badge variant="warning">
+        <AlertTriangle className="h-3 w-3 mr-1" />
         Partial
       </Badge>;
     } else {
-      return <Badge variant="success" className="gap-1">
-        <PackageCheck className="h-3 w-3" />
+      return <Badge variant="success">
+        <PackageCheck className="h-3 w-3 mr-1" />
         Received
       </Badge>;
     }
@@ -832,117 +595,22 @@ Procurement Team`;
   const getPaymentBadge = (status) => {
     switch (status) {
       case 'paid':
-        return <Badge variant="success" className="gap-1">
-          <CheckCircle className="h-3 w-3" />
+        return <Badge variant="success">
+          <CheckCircle className="h-3 w-3 mr-1" />
           Paid
         </Badge>;
       case 'partial':
-        return <Badge variant="warning" className="gap-1">
-          <AlertTriangle className="h-3 w-3" />
+        return <Badge variant="warning">
+          <AlertTriangle className="h-3 w-3 mr-1" />
           Partial
         </Badge>;
       default:
-        return <Badge variant="outline" className="gap-1">
-          <Clock className="h-3 w-3" />
+        return <Badge variant="outline">
+          <Clock className="h-3 w-3 mr-1" />
           Pending
         </Badge>;
     }
   };
-
-  // Get contact info for display
-  const getContactInfo = (order) => {
-    const info = [];
-    if (order.supplierPhone) info.push({ type: 'phone', value: order.supplierPhone });
-    if (order.supplierEmail) info.push({ type: 'email', value: order.supplierEmail });
-    return info;
-  };
-
-  // Empty state component
-  const EmptyState = ({ message, action }) => (
-    <div className="text-center py-12">
-      <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
-        <Package className="h-8 w-8 text-gray-400" />
-      </div>
-      <h3 className="text-lg font-semibold text-gray-700 mb-2">
-        No Procurement Orders Yet
-      </h3>
-      <p className="text-gray-500 mb-6 max-w-md mx-auto">
-        {message}
-      </p>
-      <Button onClick={action}>
-        <Plus className="h-4 w-4 mr-2" />
-        Create First Order
-      </Button>
-    </div>
-  );
-
-  // Debug panel component
-  const DebugPanel = () => (
-    <div className="fixed bottom-4 right-4 z-50">
-      <Button 
-        onClick={() => setShowDebug(!showDebug)}
-        className="bg-red-600 hover:bg-red-700"
-        size="sm"
-      >
-        <Bug className="h-4 w-4 mr-2" />
-        Debug
-      </Button>
-      
-      {showDebug && (
-        <div className="absolute bottom-full right-0 mb-2 w-96 max-h-96 overflow-auto bg-gray-900 text-white p-4 rounded-lg shadow-xl">
-          <div className="flex justify-between items-center mb-2">
-            <h3 className="font-bold">Debug Data</h3>
-            <Button 
-              onClick={() => setShowDebug(false)}
-              size="sm"
-              variant="ghost"
-              className="text-white hover:bg-gray-800"
-            >
-              Close
-            </Button>
-          </div>
-          
-          <div className="space-y-4 text-sm">
-            <div>
-              <h4 className="font-semibold text-green-400">Summary:</h4>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="bg-gray-800 p-2 rounded">
-                  <div className="font-medium">Farmers Count:</div>
-                  <div>{farmers.length}</div>
-                </div>
-                <div className="bg-gray-800 p-2 rounded">
-                  <div className="font-medium">Allocations Count:</div>
-                  <div>{supplyAllocations.length}</div>
-                </div>
-                <div className="bg-gray-800 p-2 rounded">
-                  <div className="font-medium">Scheduled Allocations:</div>
-                  <div>{supplyAllocations.filter(a => a.status === 'scheduled').length}</div>
-                </div>
-                <div className="bg-gray-800 p-2 rounded">
-                  <div className="font-medium">Available Farmers:</div>
-                  <div>{getFarmersWithAllocations().length}</div>
-                </div>
-              </div>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold text-blue-400">First Allocation:</h4>
-              <pre className="bg-gray-800 p-2 rounded overflow-auto max-h-32">
-                {JSON.stringify(supplyAllocations[0] || {}, null, 2)}
-              </pre>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold text-yellow-400">Available Farmers List:</h4>
-              <pre className="bg-gray-800 p-2 rounded overflow-auto max-h-32">
-                {JSON.stringify(getFarmersWithAllocations(), null, 2)}
-              </pre>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
 
   // Loading state
   if (loading) {
@@ -961,14 +629,13 @@ Procurement Team`;
     );
   }
 
+  const farmersWithAllocations = getFarmersWithAllocations();
+
   return (
     <DashboardLayout
       title="Procurement Management"
       description="Two-step procurement process: Order → Goods Receipt"
     >
-      {/* Debug Panel */}
-      <DebugPanel />
-      
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-5 mb-6">
         <Card>
@@ -1072,337 +739,251 @@ Procurement Team`;
                   >
                     <RefreshCw className="h-4 w-4" />
                   </Button>
-                  <Dialog open={isStep1DialogOpen} onOpenChange={(open) => {
-                    setIsStep1DialogOpen(open);
-                    if (open) {
-                      fetchData();
-                    }
-                  }}>
+                  <Dialog open={isStep1DialogOpen} onOpenChange={setIsStep1DialogOpen}>
                     <DialogTrigger asChild>
                       <Button size="sm">
                         <Plus className="h-4 w-4 mr-2" />
                         New Order
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-                      <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
+                    <DialogContent className="max-w-2xl">
+                      <DialogHeader>
                         <DialogTitle>Step 1: Create Procurement Order</DialogTitle>
                         <DialogDescription>
                           Send order to farmer/aggregator before delivery date
                         </DialogDescription>
                       </DialogHeader>
                       
-                      <div className="overflow-y-auto flex-1 p-6">
-                        <div className="grid gap-6">
-                          {/* Supplier Type */}
+                      <div className="grid gap-4 py-4">
+                        {/* Supplier Type */}
+                        <div className="space-y-2">
+                          <Label htmlFor="supplierType">Supplier Type *</Label>
+                          <select
+                            id="supplierType"
+                            name="supplierType"
+                            value={step1Form.supplierType}
+                            onChange={(e) => handleStep1SelectChange('supplierType', e.target.value)}
+                            className="w-full p-2.5 border border-gray-300 rounded-md bg-white text-sm"
+                          >
+                            <option value="farmer">Farmer (From Supply Planning)</option>
+                            <option value="aggregator">Aggregator</option>
+                            <option value="external">External Supplier</option>
+                          </select>
+                        </div>
+
+                        {/* SIMPLE FARMER SELECTION - Using basic select */}
+                        {step1Form.supplierType === 'farmer' && (
                           <div className="space-y-2">
-                            <Label htmlFor="supplierType">Supplier Type *</Label>
-                            <select
-                              id="supplierType"
-                              name="supplierType"
-                              value={step1Form.supplierType}
-                              onChange={(e) => handleStep1SelectChange('supplierType', e.target.value)}
-                              className="w-full p-2.5 border border-gray-300 rounded-md bg-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            >
-                              <option value="farmer">Farmer (From Supply Planning)</option>
-                              <option value="aggregator">Aggregator</option>
-                              <option value="external">External Supplier</option>
-                            </select>
-                            {step1Form.supplierType === 'farmer' && (
-                              <p className="text-xs text-green-600">
-                                ✓ Farmers with scheduled supply allocations will appear here
+                            <Label htmlFor="farmer">Select Farmer *</Label>
+                            
+                            {/* Info box */}
+                            <div className="p-2 bg-blue-50 border border-blue-200 rounded mb-2">
+                              <p className="text-sm text-blue-700">
+                                Available farmers from Supply Planning: {farmersWithAllocations.length}
                               </p>
+                              {farmersWithAllocations.length === 0 && (
+                                <p className="text-sm text-amber-600 mt-1">
+                                  No farmers with scheduled allocations. Please add allocations in Supply Planning first.
+                                </p>
+                              )}
+                            </div>
+                            
+                            {/* SIMPLE SELECT DROPDOWN */}
+                            <select
+                              id="farmer"
+                              name="farmerId"
+                              value={step1Form.farmerId}
+                              onChange={(e) => handleStep1SelectChange('farmerId', e.target.value)}
+                              className="w-full p-2.5 border border-gray-300 rounded-md bg-white text-sm"
+                              required
+                            >
+                              <option value="">-- Choose a farmer with scheduled supply --</option>
+                              {farmersWithAllocations.map(farmer => {
+                                const firstAllocation = farmer.allocations?.[0];
+                                return (
+                                  <option key={farmer.id} value={farmer.id}>
+                                    🌾 {farmer.name} 
+                                    {farmer.crop ? ` | ${farmer.crop}` : ''}
+                                    {farmer.county ? ` | ${farmer.county}` : ''}
+                                    {firstAllocation ? ` | ${firstAllocation.quantity} tons on ${new Date(firstAllocation.date).toLocaleDateString()}` : ''}
+                                  </option>
+                                );
+                              })}
+                            </select>
+                            
+                            {/* Show allocation details when farmer is selected */}
+                            {step1Form.farmerId && (
+                              <div className="mt-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                                <p className="text-sm font-medium text-green-700 mb-2">
+                                  Scheduled Supply Allocations:
+                                </p>
+                                {(() => {
+                                  const selectedFarmer = farmersWithAllocations.find(f => f.id.toString() === step1Form.farmerId.toString());
+                                  if (!selectedFarmer?.allocations?.length) {
+                                    return <p className="text-sm text-yellow-600">No allocations found</p>;
+                                  }
+                                  
+                                  return selectedFarmer.allocations.map(allocation => (
+                                    <div key={allocation.id} className="text-sm text-green-600 mb-1">
+                                      • {new Date(allocation.date).toLocaleDateString()}: {allocation.quantity} tons
+                                    </div>
+                                  ));
+                                })()}
+                              </div>
                             )}
                           </div>
+                        )}
 
-                          {/* SIMPLIFIED FARMER SELECTION */}
-                          {step1Form.supplierType === 'farmer' && (
-                            <>
-                              <div className="space-y-2">
-                                <Label htmlFor="farmer">Select Farmer *</Label>
-                                
-                                {/* Show available farmers count */}
-                                <div className="text-xs bg-blue-50 p-2 rounded mb-2">
-                                  <div className="flex justify-between items-center">
-                                    <span className="font-medium">Available Farmers from Supply Planning:</span>
-                                    <span className={`px-2 py-1 rounded ${getFarmersWithAllocations().length > 0 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                      {getFarmersWithAllocations().length} farmers
-                                    </span>
-                                  </div>
-                                  <p className="text-blue-600 mt-1">
-                                    These farmers have scheduled supply dates in Supply Planning
-                                  </p>
-                                </div>
-                                
-                                <select
-                                  id="farmer"
-                                  name="farmerId"
-                                  value={step1Form.farmerId}
-                                  onChange={(e) => {
-                                    console.log('Selected farmer ID:', e.target.value);
-                                    handleStep1SelectChange('farmerId', e.target.value);
-                                  }}
-                                  className="w-full p-2.5 border border-gray-300 rounded-md bg-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                  required={step1Form.supplierType === 'farmer'}
-                                >
-                                  <option value="">-- Choose a farmer with scheduled supply --</option>
-                                  {getFarmersWithAllocations().length === 0 ? (
-                                    <option value="" disabled>
-                                      No farmers with scheduled supply allocations
-                                    </option>
-                                  ) : (
-                                    getFarmersWithAllocations().map(farmer => {
-                                      // Get scheduled allocations for this farmer
-                                      const farmerAllocations = supplyAllocations.filter(a => 
-                                        a?.farmerId?.toString() === farmer.id?.toString() && 
-                                        a?.status === 'scheduled'
-                                      );
-                                      
-                                      return (
-                                        <option key={farmer.id} value={farmer.id}>
-                                          🌾 {farmer.name || 'Unnamed Farmer'} 
-                                          {farmer.crop ? ` | ${farmer.crop}` : ''}
-                                          {farmer.county ? ` | ${farmer.county}` : ''}
-                                          {farmerAllocations.length > 0 && (
-                                            <span className="text-green-600">
-                                              {' '}| {farmerAllocations.length} scheduled
-                                            </span>
-                                          )}
-                                        </option>
-                                      );
-                                    })
-                                  )}
-                                </select>
-                              </div>
-                              
-                              {/* Show allocation details when farmer is selected */}
-                              {step1Form.farmerId && (
-                                <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                                  <p className="text-sm font-medium text-green-700 mb-2 flex items-center gap-1">
-                                    <Calendar className="h-3 w-3" />
-                                    Scheduled Supply Allocations:
-                                  </p>
-                                  
-                                  {(() => {
-                                    // Find all scheduled allocations for this farmer
-                                    const farmerAllocations = supplyAllocations.filter(a => 
-                                      a?.farmerId?.toString() === step1Form.farmerId?.toString() && 
-                                      a?.status === 'scheduled'
-                                    );
-                                    
-                                    if (farmerAllocations.length === 0) {
-                                      return (
-                                        <p className="text-sm text-yellow-600">
-                                          No scheduled allocations found for this farmer.
-                                        </p>
-                                      );
-                                    }
-                                    
-                                    return farmerAllocations.map(allocation => (
-                                      <div key={allocation.id} className="text-sm text-green-600 mb-2 p-2 bg-green-100 rounded">
-                                        <div className="flex items-center justify-between mb-1">
-                                          <span className="font-medium">
-                                            • {allocation.date ? new Date(allocation.date).toLocaleDateString('en-US', { 
-                                              weekday: 'short', 
-                                              month: 'short', 
-                                              day: 'numeric' 
-                                            }) : 'No date'}
-                                          </span>
-                                          <span className="font-bold bg-white px-2 py-0.5 rounded text-xs border border-green-300">
-                                            {allocation.quantity || '0'} tons
-                                          </span>
-                                        </div>
-                                        {allocation.notes && (
-                                          <p className="text-xs text-green-500 pl-2 mt-1">Note: {allocation.notes}</p>
-                                        )}
-                                      </div>
-                                    ));
-                                  })()}
-                                  <p className="text-xs text-green-600 mt-2">
-                                    This information is pre-filled from Supply Planning
-                                  </p>
-                                </div>
-                              )}
-                            </>
-                          )}
-
-                          {/* Aggregator Selection */}
-                          {step1Form.supplierType === 'aggregator' && (
-                            <>
-                              <div className="space-y-2">
-                                <Label htmlFor="aggregator">Select Aggregator *</Label>
-                                <select
-                                  id="aggregator"
-                                  name="aggregatorId"
-                                  value={step1Form.aggregatorId}
-                                  onChange={(e) => handleStep1SelectChange('aggregatorId', e.target.value)}
-                                  className="w-full p-2.5 border border-gray-300 rounded-md bg-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                >
-                                  <option value="">-- Choose an aggregator --</option>
-                                  {aggregators.length === 0 ? (
-                                    <option value="" disabled>No aggregators available</option>
-                                  ) : (
-                                    aggregators.map(aggregator => (
-                                      <option key={aggregator.id} value={aggregator.id}>
-                                        👥 {aggregator.name} | {aggregator.type} | {aggregator.county || 'Location'}
-                                      </option>
-                                    ))
-                                  )}
-                                </select>
-                              </div>
-                              
-                              <div className="space-y-2">
-                                <Label htmlFor="isContracted">Contracted? *</Label>
-                                <select
-                                  id="isContracted"
-                                  name="isContracted"
-                                  value={step1Form.isContracted}
-                                  onChange={(e) => handleStep1SelectChange('isContracted', e.target.value)}
-                                  className="w-full p-2.5 border border-gray-300 rounded-md bg-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                >
-                                  <option value="yes">Yes (Contracted)</option>
-                                  <option value="no">No (Spot Purchase)</option>
-                                </select>
-                              </div>
-                            </>
-                          )}
-
-                          {/* Supplier Details - Auto-filled from farmer selection */}
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="supplierName">Supplier Name *</Label>
-                              <Input
-                                id="supplierName"
-                                name="supplierName"
-                                value={step1Form.supplierName}
-                                onChange={handleStep1InputChange}
-                                placeholder="Supplier name"
-                                required
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="supplierPhone" className="flex items-center gap-1">
-                                <Phone className="h-3 w-3" />
-                                Phone *
-                              </Label>
-                              <Input
-                                id="supplierPhone"
-                                name="supplierPhone"
-                                value={step1Form.supplierPhone}
-                                onChange={handleStep1InputChange}
-                                placeholder="+254712345678"
-                                required
-                              />
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="supplierEmail" className="flex items-center gap-1">
-                                <Mail className="h-3 w-3" />
-                                Email
-                              </Label>
-                              <Input
-                                id="supplierEmail"
-                                name="supplierEmail"
-                                type="email"
-                                value={step1Form.supplierEmail}
-                                onChange={handleStep1InputChange}
-                                placeholder="supplier@example.com"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="cropName">Crop Name</Label>
-                              <Input
-                                id="cropName"
-                                name="cropName"
-                                value={step1Form.cropName}
-                                onChange={handleStep1InputChange}
-                                placeholder="e.g., Wheat, Corn..."
-                              />
-                            </div>
-                          </div>
-
-                          {/* Order Details */}
-                          <div className="grid grid-cols-3 gap-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="quantityOrdered">Quantity (tons) *</Label>
-                              <Input
-                                id="quantityOrdered"
-                                name="quantityOrdered"
-                                type="number"
-                                step="0.1"
-                                value={step1Form.quantityOrdered}
-                                onChange={handleStep1InputChange}
-                                placeholder="0"
-                                required
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="pricePerUnit">Price/ton (KES)</Label>
-                              <Input
-                                id="pricePerUnit"
-                                name="pricePerUnit"
-                                type="number"
-                                value={step1Form.pricePerUnit}
-                                onChange={handleStep1InputChange}
-                                placeholder="15000"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="deliveryDate">Delivery Date *</Label>
-                              <Input
-                                id="deliveryDate"
-                                name="deliveryDate"
-                                type="date"
-                                value={step1Form.deliveryDate}
-                                onChange={handleStep1InputChange}
-                                required
-                              />
-                            </div>
-                          </div>
-
-                          {/* LPO and Order Date */}
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="lpoNumber">LPO Number</Label>
-                              <Input
-                                id="lpoNumber"
-                                name="lpoNumber"
-                                value={step1Form.lpoNumber}
-                                onChange={handleStep1InputChange}
-                                placeholder="LPO-2024-001"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="orderDate">Order Date *</Label>
-                              <Input
-                                id="orderDate"
-                                name="orderDate"
-                                type="date"
-                                value={step1Form.orderDate}
-                                onChange={handleStep1InputChange}
-                                required
-                              />
-                            </div>
-                          </div>
-
-                          {/* Notes */}
+                        {/* Aggregator Selection */}
+                        {step1Form.supplierType === 'aggregator' && (
                           <div className="space-y-2">
-                            <Label htmlFor="notes">Order Notes</Label>
-                            <Textarea
-                              id="notes"
-                              name="notes"
-                              value={step1Form.notes}
+                            <Label htmlFor="aggregator">Select Aggregator *</Label>
+                            <select
+                              id="aggregator"
+                              name="aggregatorId"
+                              value={step1Form.aggregatorId}
+                              onChange={(e) => handleStep1SelectChange('aggregatorId', e.target.value)}
+                              className="w-full p-2.5 border border-gray-300 rounded-md bg-white text-sm"
+                            >
+                              <option value="">-- Choose an aggregator --</option>
+                              {aggregators.map(aggregator => (
+                                <option key={aggregator.id} value={aggregator.id}>
+                                  👥 {aggregator.name} | {aggregator.type} | {aggregator.county || 'Location'}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+
+                        {/* Supplier Details */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="supplierName">Supplier Name *</Label>
+                            <Input
+                              id="supplierName"
+                              name="supplierName"
+                              value={step1Form.supplierName}
                               onChange={handleStep1InputChange}
-                              placeholder="Additional information about this order..."
-                              rows={3}
+                              placeholder="Supplier name"
+                              required
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="supplierPhone">Phone *</Label>
+                            <Input
+                              id="supplierPhone"
+                              name="supplierPhone"
+                              value={step1Form.supplierPhone}
+                              onChange={handleStep1InputChange}
+                              placeholder="+254712345678"
+                              required
                             />
                           </div>
                         </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="supplierEmail">Email</Label>
+                            <Input
+                              id="supplierEmail"
+                              name="supplierEmail"
+                              type="email"
+                              value={step1Form.supplierEmail}
+                              onChange={handleStep1InputChange}
+                              placeholder="supplier@example.com"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="cropName">Crop Name</Label>
+                            <Input
+                              id="cropName"
+                              name="cropName"
+                              value={step1Form.cropName}
+                              onChange={handleStep1InputChange}
+                              placeholder="e.g., Wheat, Corn..."
+                            />
+                          </div>
+                        </div>
+
+                        {/* Order Details */}
+                        <div className="grid grid-cols-3 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="quantityOrdered">Quantity (tons) *</Label>
+                            <Input
+                              id="quantityOrdered"
+                              name="quantityOrdered"
+                              type="number"
+                              step="0.1"
+                              value={step1Form.quantityOrdered}
+                              onChange={handleStep1InputChange}
+                              placeholder="0"
+                              required
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="pricePerUnit">Price/ton (KES)</Label>
+                            <Input
+                              id="pricePerUnit"
+                              name="pricePerUnit"
+                              type="number"
+                              value={step1Form.pricePerUnit}
+                              onChange={handleStep1InputChange}
+                              placeholder="15000"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="deliveryDate">Delivery Date *</Label>
+                            <Input
+                              id="deliveryDate"
+                              name="deliveryDate"
+                              type="date"
+                              value={step1Form.deliveryDate}
+                              onChange={handleStep1InputChange}
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        {/* LPO and Order Date */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="lpoNumber">LPO Number</Label>
+                            <Input
+                              id="lpoNumber"
+                              name="lpoNumber"
+                              value={step1Form.lpoNumber}
+                              onChange={handleStep1InputChange}
+                              placeholder="LPO-2024-001"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="orderDate">Order Date *</Label>
+                            <Input
+                              id="orderDate"
+                              name="orderDate"
+                              type="date"
+                              value={step1Form.orderDate}
+                              onChange={handleStep1InputChange}
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        {/* Notes */}
+                        <div className="space-y-2">
+                          <Label htmlFor="notes">Order Notes</Label>
+                          <Textarea
+                            id="notes"
+                            name="notes"
+                            value={step1Form.notes}
+                            onChange={handleStep1InputChange}
+                            placeholder="Additional information about this order..."
+                            rows={3}
+                          />
+                        </div>
                       </div>
 
-                      <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
+                      <DialogFooter>
                         <Button variant="outline" onClick={() => {
                           setIsStep1DialogOpen(false);
                           resetStep1Form();
@@ -1414,7 +995,7 @@ Procurement Team`;
                           disabled={!step1Form.supplierName || !step1Form.quantityOrdered || !step1Form.deliveryDate}
                         >
                           <CheckCircle className="h-4 w-4 mr-2" />
-                          Create & Send Order
+                          Create Order
                         </Button>
                       </DialogFooter>
                     </DialogContent>
@@ -1433,48 +1014,6 @@ Procurement Team`;
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {/* Quick Send Actions */}
-                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                        <div>
-                          <h4 className="font-medium text-blue-800">Quick Send Actions</h4>
-                          <p className="text-sm text-blue-600">
-                            Send order notifications to all suppliers awaiting confirmation
-                          </p>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleSendBulkMessages('whatsapp')}
-                            className="gap-2 hover:bg-green-50"
-                          >
-                            <MessageSquare className="h-4 w-4 text-green-600" />
-                            Bulk WhatsApp
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleSendBulkMessages('email')}
-                            className="gap-2 hover:bg-blue-50"
-                          >
-                            <Mail className="h-4 w-4 text-blue-600" />
-                            Bulk Email
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={fetchData}
-                            className="gap-2 hover:bg-gray-50"
-                          >
-                            <RefreshCw className="h-4 w-4" />
-                            Refresh
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Individual Orders Table */}
                     <div className="rounded-lg border overflow-hidden">
                       <Table>
                         <TableHeader>
@@ -1486,143 +1025,81 @@ Procurement Team`;
                             <TableHead>Quantity</TableHead>
                             <TableHead>Delivery Date</TableHead>
                             <TableHead>LPO</TableHead>
-                            <TableHead className="text-center">Send Order</TableHead>
                             <TableHead className="text-right">Actions</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {orders
                             .filter(order => !order.goodsReceived)
-                            .map(order => {
-                              const contactInfo = getContactInfo(order);
-                              return (
-                                <TableRow key={order.id}>
-                                  <TableCell>
-                                    {new Date(order.orderDate).toLocaleDateString()}
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="font-medium">{order.supplierName}</div>
-                                    <div className="text-xs text-muted-foreground">
-                                      {order.supplierType === 'farmer' ? 'Farmer' : 'Aggregator'}
-                                      {order.isContracted && ' • Contracted'}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="space-y-1">
-                                      {contactInfo.length > 0 ? (
-                                        contactInfo.map((info, index) => (
-                                          <div key={index} className="flex items-center gap-1 text-sm">
-                                            {info.type === 'phone' ? (
-                                              <Phone className="h-3 w-3 text-blue-600" />
-                                            ) : (
-                                              <Mail className="h-3 w-3 text-green-600" />
-                                            )}
-                                            <span className={info.type === 'phone' ? 'text-blue-600' : 'text-green-600'}>
-                                              {info.value}
-                                            </span>
-                                          </div>
-                                        ))
-                                      ) : (
-                                        <span className="text-sm text-muted-foreground">No contact</span>
-                                      )}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="flex items-center gap-1">
-                                      <Sprout className="h-3 w-3 text-green-600" />
-                                      {order.cropName || '-'}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="font-medium">{order.quantityOrdered}t</div>
-                                    <div className="text-xs text-muted-foreground">
-                                      KES {(order.quantityOrdered * order.pricePerUnit).toLocaleString()}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="flex items-center gap-1">
-                                      <Calendar className="h-3 w-3 text-muted-foreground" />
-                                      {new Date(order.deliveryDate).toLocaleDateString()}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="font-mono text-sm">{order.lpoNumber || '-'}</div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="flex justify-center gap-1">
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => handleSendOrder(order, 'whatsapp')}
-                                        title="Send via WhatsApp"
-                                        className="h-8 w-8 p-0 hover:bg-green-50"
-                                        disabled={!order.supplierPhone}
-                                      >
-                                        <MessageSquare className="h-4 w-4 text-green-600" />
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => handleSendOrder(order, 'email')}
-                                        title="Send via Email"
-                                        className="h-8 w-8 p-0 hover:bg-blue-50"
-                                        disabled={!order.supplierEmail}
-                                      >
-                                        <Mail className="h-4 w-4 text-blue-600" />
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => handleSendOrder(order, 'call')}
-                                        title="Call Supplier"
-                                        className="h-8 w-8 p-0 hover:bg-purple-50"
-                                        disabled={!order.supplierPhone}
-                                      >
-                                        <Phone className="h-4 w-4 text-purple-600" />
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => handleSendOrder(order, 'sms')}
-                                        title="Send SMS"
-                                        className="h-8 w-8 p-0 hover:bg-orange-50"
-                                        disabled={!order.supplierPhone}
-                                      >
-                                        <Send className="h-4 w-4 text-orange-600" />
-                                      </Button>
-                                    </div>
-                                    <div className="text-xs text-center mt-1 text-muted-foreground">
-                                      {order.supplierPhone || order.supplierEmail ? 'Click to send' : 'No contact'}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    <div className="flex justify-end gap-2">
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => {
-                                          const message = `Order #${order.id}\nSupplier: ${order.supplierName}\nCrop: ${order.cropName}\nQuantity: ${order.quantityOrdered}t\nDelivery: ${new Date(order.deliveryDate).toLocaleDateString()}\nLPO: ${order.lpoNumber}`;
-                                          navigator.clipboard.writeText(message);
-                                          toast.success('Order details copied');
-                                        }}
-                                        className="h-8"
-                                      >
-                                        <Copy className="h-4 w-4 mr-2" />
-                                        Copy
-                                      </Button>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => openStep2Dialog(order)}
-                                      >
-                                        <ClipboardCheck className="h-4 w-4 mr-2" />
-                                        Receipt
-                                      </Button>
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })
+                            .map(order => (
+                              <TableRow key={order.id}>
+                                <TableCell>
+                                  {new Date(order.orderDate).toLocaleDateString()}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="font-medium">{order.supplierName}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {order.farmerId ? 'Farmer' : 'Aggregator'}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="space-y-1">
+                                    {order.supplierPhone && (
+                                      <div className="flex items-center gap-1 text-sm">
+                                        <Phone className="h-3 w-3 text-blue-600" />
+                                        <span className="text-blue-600">{order.supplierPhone}</span>
+                                      </div>
+                                    )}
+                                    {order.supplierEmail && (
+                                      <div className="flex items-center gap-1 text-sm">
+                                        <Mail className="h-3 w-3 text-green-600" />
+                                        <span className="text-green-600">{order.supplierEmail}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-1">
+                                    <Sprout className="h-3 w-3 text-green-600" />
+                                    {order.cropName || '-'}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="font-medium">{order.quantityOrdered}t</div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-1">
+                                    <Calendar className="h-3 w-3 text-muted-foreground" />
+                                    {new Date(order.deliveryDate).toLocaleDateString()}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="font-mono text-sm">{order.lpoNumber || '-'}</div>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <div className="flex justify-end gap-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        setStep2Form({
+                                          orderId: order.id.toString(),
+                                          quantityDelivered: order.quantityOrdered?.toString() || '',
+                                          quantityAccepted: '',
+                                          quantityRejected: '',
+                                          rejectionReason: '',
+                                          actualDeliveryDate: new Date().toISOString().split('T')[0],
+                                          notes: ''
+                                        });
+                                        setIsStep2DialogOpen(true);
+                                      }}
+                                    >
+                                      Record Receipt
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))
                           }
                         </TableBody>
                       </Table>
@@ -1701,15 +1178,9 @@ Procurement Team`;
                               </TableCell>
                               <TableCell className="font-medium">
                                 <div>{order.supplierName}</div>
-                                {order.isContracted && (
-                                  <Badge variant="outline" className="mt-1 text-xs">Contracted</Badge>
-                                )}
                               </TableCell>
                               <TableCell>
                                 <div className="font-medium">{order.quantityOrdered}t</div>
-                                <div className="text-xs text-muted-foreground">
-                                  KES {(order.quantityOrdered * order.pricePerUnit).toLocaleString()}
-                                </div>
                               </TableCell>
                               <TableCell>
                                 <div className="flex items-center gap-1">
@@ -1723,17 +1194,20 @@ Procurement Team`;
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => openStep2Dialog(order)}
+                                    onClick={() => {
+                                      setStep2Form({
+                                        orderId: order.id.toString(),
+                                        quantityDelivered: order.quantityOrdered?.toString() || '',
+                                        quantityAccepted: '',
+                                        quantityRejected: '',
+                                        rejectionReason: '',
+                                        actualDeliveryDate: new Date().toISOString().split('T')[0],
+                                        notes: ''
+                                      });
+                                      setIsStep2DialogOpen(true);
+                                    }}
                                   >
-                                    <ClipboardCheck className="h-4 w-4 mr-2" />
                                     Record Receipt
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => openNotesDialog(order)}
-                                  >
-                                    <FileText className="h-4 w-4" />
                                   </Button>
                                 </div>
                               </TableCell>
@@ -1771,7 +1245,6 @@ Procurement Team`;
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                       className="w-full sm:w-64 pl-9"
-                      disabled={orders.length === 0}
                     />
                   </div>
                   <Button onClick={() => setActiveTab('step1')}>
@@ -1784,10 +1257,21 @@ Procurement Team`;
             
             <CardContent>
               {orders.length === 0 ? (
-                <EmptyState 
-                  message="Start your procurement process by creating your first order in Step 1."
-                  action={() => setActiveTab('step1')}
-                />
+                <div className="text-center py-12">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
+                    <Package className="h-8 w-8 text-gray-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-700 mb-2">
+                    No Procurement Orders Yet
+                  </h3>
+                  <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                    Start your procurement process by creating your first order in Step 1.
+                  </p>
+                  <Button onClick={() => setActiveTab('step1')}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create First Order
+                  </Button>
+                </div>
               ) : (
                 <>
                   <div className="rounded-lg border overflow-hidden">
@@ -1813,7 +1297,7 @@ Procurement Team`;
                             : 0;
                           
                           return (
-                            <TableRow key={order.id} className="hover:bg-muted/30">
+                            <TableRow key={order.id}>
                               <TableCell className="font-medium">
                                 <div>#{order.id}</div>
                                 {order.lpoNumber && (
@@ -1825,12 +1309,11 @@ Procurement Team`;
                               <TableCell>
                                 <div className="font-medium">{order.supplierName}</div>
                                 <div className="text-xs text-muted-foreground">
-                                  {order.farmerId ? 'Farmer' : order.aggregatorId ? 'Aggregator' : 'External'}
-                                  {order.isContracted && ' • Contracted'}
+                                  {order.farmerId ? 'Farmer' : 'Aggregator'}
                                 </div>
                               </TableCell>
                               <TableCell>
-                                <Badge variant={order.farmerId ? 'farmer' : 'outline'}>
+                                <Badge variant={order.farmerId ? 'outline' : 'secondary'}>
                                   {order.farmerId ? 'Farmer' : 'Other'}
                                 </Badge>
                               </TableCell>
@@ -1842,9 +1325,6 @@ Procurement Team`;
                               </TableCell>
                               <TableCell className="text-center font-medium">
                                 <div>{order.quantityOrdered}t</div>
-                                <div className="text-xs text-muted-foreground">
-                                  KES {(order.quantityOrdered * order.pricePerUnit).toLocaleString()}
-                                </div>
                               </TableCell>
                               <TableCell className="text-center">
                                 {order.quantityDelivered > 0 ? (
@@ -1875,39 +1355,68 @@ Procurement Team`;
                                     <Button
                                       variant="outline"
                                       size="sm"
-                                      onClick={() => openStep2Dialog(order)}
+                                      onClick={() => {
+                                        setStep2Form({
+                                          orderId: order.id.toString(),
+                                          quantityDelivered: order.quantityOrdered?.toString() || '',
+                                          quantityAccepted: '',
+                                          quantityRejected: '',
+                                          rejectionReason: '',
+                                          actualDeliveryDate: new Date().toISOString().split('T')[0],
+                                          notes: ''
+                                        });
+                                        setIsStep2DialogOpen(true);
+                                      }}
                                       className="h-8 px-2"
-                                      title="Record Goods Receipt"
                                     >
-                                      <ClipboardCheck className="h-3 w-3" />
+                                      Receipt
                                     </Button>
                                   )}
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => openPaymentDialog(order)}
+                                    onClick={() => {
+                                      setSelectedOrderForPayment(order);
+                                      setPaymentForm({
+                                        orderId: order.id.toString(),
+                                        paymentStatus: order.paymentStatus || 'pending',
+                                        amountPaid: order.amountPaid?.toString() || '',
+                                        paymentDate: new Date().toISOString().split('T')[0],
+                                        paymentMethod: order.paymentMethod || 'bank_transfer',
+                                        referenceNumber: order.paymentReference || '',
+                                        notes: ''
+                                      });
+                                      setIsPaymentDialogOpen(true);
+                                    }}
                                     className="h-8 px-2"
-                                    title="Update Payment"
                                   >
-                                    <DollarSign className="h-3 w-3" />
+                                    Payment
                                   </Button>
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => openNotesDialog(order)}
+                                    onClick={() => {
+                                      setSelectedOrderForNotes(order);
+                                      setNotesForm({
+                                        orderId: order.id.toString(),
+                                        notes: ''
+                                      });
+                                      setIsNotesDialogOpen(true);
+                                    }}
                                     className="h-8 px-2"
-                                    title="Add Notes"
                                   >
                                     <FileText className="h-3 w-3" />
                                   </Button>
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => openDeleteDialog(order)}
-                                    className="h-8 px-2"
-                                    title="Delete Order"
+                                    onClick={() => {
+                                      setSelectedOrder(order);
+                                      setIsDeleteDialogOpen(true);
+                                    }}
+                                    className="h-8 px-2 text-red-500"
                                   >
-                                    <Trash2 className="h-3 w-3 text-red-500" />
+                                    <Trash2 className="h-3 w-3" />
                                   </Button>
                                 </div>
                               </TableCell>
@@ -1939,115 +1448,90 @@ Procurement Team`;
 
       {/* Step 2 Dialog: Goods Receipt */}
       <Dialog open={isStep2DialogOpen} onOpenChange={setIsStep2DialogOpen}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
+        <DialogContent>
+          <DialogHeader>
             <DialogTitle>Step 2: Record Goods Receipt</DialogTitle>
             <DialogDescription>
               Update when goods are delivered to warehouse
             </DialogDescription>
           </DialogHeader>
           
-          <div className="overflow-y-auto flex-1 p-6">
-            <div className="grid gap-4">
-              {step2Form.orderId && (
-                <div className="p-3 bg-blue-50 rounded-lg">
-                  <p className="text-sm font-medium text-blue-700">
-                    Recording receipt for Order #{step2Form.orderId}
-                  </p>
-                </div>
-              )}
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="quantityDelivered">Delivered Quantity (tons) *</Label>
+              <Input
+                id="quantityDelivered"
+                name="quantityDelivered"
+                type="number"
+                step="0.1"
+                value={step2Form.quantityDelivered}
+                onChange={handleStep2InputChange}
+                placeholder="Enter delivered quantity"
+                required
+              />
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="quantityDelivered">Delivered Quantity (tons) *</Label>
-                <Input
-                  id="quantityDelivered"
-                  name="quantityDelivered"
-                  type="number"
-                  step="0.1"
-                  value={step2Form.quantityDelivered}
-                  onChange={handleStep2InputChange}
-                  placeholder="Enter delivered quantity"
-                  required
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="quantityAccepted">Accepted Quantity (tons)</Label>
+              <Input
+                id="quantityAccepted"
+                name="quantityAccepted"
+                type="number"
+                step="0.1"
+                value={step2Form.quantityAccepted}
+                onChange={handleStep2InputChange}
+                placeholder="Enter accepted quantity"
+              />
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="quantityAccepted">Accepted Quantity (tons)</Label>
-                <Input
-                  id="quantityAccepted"
-                  name="quantityAccepted"
-                  type="number"
-                  step="0.1"
-                  value={step2Form.quantityAccepted}
-                  onChange={handleStep2InputChange}
-                  placeholder="Enter accepted quantity"
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="rejectionReason">Rejection Reason (if any)</Label>
+              <select
+                id="rejectionReason"
+                name="rejectionReason"
+                value={step2Form.rejectionReason}
+                onChange={(e) => setStep2Form(prev => ({ ...prev, rejectionReason: e.target.value }))}
+                className="w-full p-2.5 border border-gray-300 rounded-md bg-white text-sm"
+              >
+                <option value="">No rejection</option>
+                <option value="poor_quality">Poor Quality</option>
+                <option value="wrong_variety">Wrong Variety</option>
+                <option value="contamination">Contamination</option>
+                <option value="moisture_high">High Moisture</option>
+                <option value="delayed_delivery">Delayed Delivery</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
 
-              {step2Form.quantityRejected > 0 && (
-                <div className="p-3 bg-red-50 rounded-lg">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-red-700">
-                      Rejected: {step2Form.quantityRejected}t
-                    </span>
-                    <Badge variant="destructive">Rejected</Badge>
-                  </div>
-                </div>
-              )}
+            <div className="space-y-2">
+              <Label htmlFor="actualDeliveryDate">Actual Delivery Date</Label>
+              <Input
+                id="actualDeliveryDate"
+                name="actualDeliveryDate"
+                type="date"
+                value={step2Form.actualDeliveryDate}
+                onChange={handleStep2InputChange}
+              />
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="rejectionReason">Rejection Reason (if any)</Label>
-                <select
-                  id="rejectionReason"
-                  name="rejectionReason"
-                  value={step2Form.rejectionReason}
-                  onChange={(e) => handleStep2SelectChange('rejectionReason', e.target.value)}
-                  className="w-full p-2.5 border border-gray-300 rounded-md bg-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">No rejection</option>
-                  <option value="poor_quality">Poor Quality</option>
-                  <option value="wrong_variety">Wrong Variety</option>
-                  <option value="contamination">Contamination</option>
-                  <option value="moisture_high">High Moisture</option>
-                  <option value="delayed_delivery">Delayed Delivery</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="actualDeliveryDate">Actual Delivery Date</Label>
-                <Input
-                  id="actualDeliveryDate"
-                  name="actualDeliveryDate"
-                  type="date"
-                  value={step2Form.actualDeliveryDate}
-                  onChange={handleStep2InputChange}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea
-                  id="notes"
-                  name="notes"
-                  value={step2Form.notes}
-                  onChange={handleStep2InputChange}
-                  placeholder="Additional notes about delivery..."
-                  rows={3}
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea
+                id="notes"
+                name="notes"
+                value={step2Form.notes}
+                onChange={handleStep2InputChange}
+                placeholder="Additional notes about delivery..."
+                rows={3}
+              />
             </div>
           </div>
 
-          <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
-            <Button variant="outline" onClick={() => {
-              setIsStep2DialogOpen(false);
-              resetStep2Form();
-            }}>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsStep2DialogOpen(false)}>
               Cancel
             </Button>
             <Button onClick={handleRecordGoodsReceipt}>
-              <CheckCircle className="h-4 w-4 mr-2" />
               Record Goods Receipt
             </Button>
           </DialogFooter>
@@ -2056,113 +1540,87 @@ Procurement Team`;
 
       {/* Payment Dialog */}
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
+        <DialogContent>
+          <DialogHeader>
             <DialogTitle>Update Payment Status</DialogTitle>
             <DialogDescription>
               Update payment information for order
             </DialogDescription>
           </DialogHeader>
           
-          <div className="overflow-y-auto flex-1 p-6">
-            <div className="grid gap-4">
-              {selectedOrderForPayment && (
-                <div className="p-3 bg-blue-50 rounded-lg">
-                  <p className="text-sm font-medium text-blue-700">
-                    Order #{selectedOrderForPayment.id} - {selectedOrderForPayment.supplierName}
-                  </p>
-                  <p className="text-sm text-blue-600">
-                    Amount Due: KES {(selectedOrderForPayment.quantityAccepted * selectedOrderForPayment.pricePerUnit).toLocaleString()}
-                  </p>
-                </div>
-              )}
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="paymentStatus">Payment Status</Label>
+              <select
+                id="paymentStatus"
+                name="paymentStatus"
+                value={paymentForm.paymentStatus}
+                onChange={(e) => setPaymentForm(prev => ({ ...prev, paymentStatus: e.target.value }))}
+                className="w-full p-2.5 border border-gray-300 rounded-md bg-white text-sm"
+              >
+                <option value="pending">Pending</option>
+                <option value="partial">Partial Payment</option>
+                <option value="paid">Paid</option>
+              </select>
+            </div>
 
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="paymentStatus">Payment Status</Label>
-                <select
-                  id="paymentStatus"
-                  name="paymentStatus"
-                  value={paymentForm.paymentStatus}
-                  onChange={(e) => setPaymentForm(prev => ({ ...prev, paymentStatus: e.target.value }))}
-                  className="w-full p-2.5 border border-gray-300 rounded-md bg-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="pending">Pending</option>
-                  <option value="partial">Partial Payment</option>
-                  <option value="paid">Paid</option>
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="amountPaid">Amount Paid (KES)</Label>
-                  <Input
-                    id="amountPaid"
-                    name="amountPaid"
-                    type="number"
-                    value={paymentForm.amountPaid}
-                    onChange={handlePaymentInputChange}
-                    placeholder="0"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="paymentDate">Payment Date</Label>
-                  <Input
-                    id="paymentDate"
-                    name="paymentDate"
-                    type="date"
-                    value={paymentForm.paymentDate}
-                    onChange={handlePaymentInputChange}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="paymentMethod">Payment Method</Label>
-                <select
-                  id="paymentMethod"
-                  name="paymentMethod"
-                  value={paymentForm.paymentMethod}
-                  onChange={(e) => setPaymentForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
-                  className="w-full p-2.5 border border-gray-300 rounded-md bg-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="bank_transfer">Bank Transfer</option>
-                  <option value="mobile_money">Mobile Money</option>
-                  <option value="cash">Cash</option>
-                  <option value="cheque">Cheque</option>
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="referenceNumber">Reference Number</Label>
+                <Label htmlFor="amountPaid">Amount Paid (KES)</Label>
                 <Input
-                  id="referenceNumber"
-                  name="referenceNumber"
-                  value={paymentForm.referenceNumber}
+                  id="amountPaid"
+                  name="amountPaid"
+                  type="number"
+                  value={paymentForm.amountPaid}
                   onChange={handlePaymentInputChange}
-                  placeholder="e.g., TRX123456"
+                  placeholder="0"
                 />
               </div>
-
               <div className="space-y-2">
-                <Label htmlFor="paymentNotes">Payment Notes</Label>
-                <Textarea
-                  id="notes"
-                  name="notes"
-                  value={paymentForm.notes}
+                <Label htmlFor="paymentDate">Payment Date</Label>
+                <Input
+                  id="paymentDate"
+                  name="paymentDate"
+                  type="date"
+                  value={paymentForm.paymentDate}
                   onChange={handlePaymentInputChange}
-                  placeholder="Additional payment notes..."
-                  rows={2}
                 />
               </div>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="paymentMethod">Payment Method</Label>
+              <select
+                id="paymentMethod"
+                name="paymentMethod"
+                value={paymentForm.paymentMethod}
+                onChange={(e) => setPaymentForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                className="w-full p-2.5 border border-gray-300 rounded-md bg-white text-sm"
+              >
+                <option value="bank_transfer">Bank Transfer</option>
+                <option value="mobile_money">Mobile Money</option>
+                <option value="cash">Cash</option>
+                <option value="cheque">Cheque</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="referenceNumber">Reference Number</Label>
+              <Input
+                id="referenceNumber"
+                name="referenceNumber"
+                value={paymentForm.referenceNumber}
+                onChange={handlePaymentInputChange}
+                placeholder="e.g., TRX123456"
+              />
+            </div>
           </div>
 
-          <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
+          <DialogFooter>
             <Button variant="outline" onClick={() => setIsPaymentDialogOpen(false)}>
               Cancel
             </Button>
             <Button onClick={handleUpdatePayment}>
-              <CheckCircle className="h-4 w-4 mr-2" />
               Update Payment
             </Button>
           </DialogFooter>
@@ -2171,47 +1629,33 @@ Procurement Team`;
 
       {/* Notes Dialog */}
       <Dialog open={isNotesDialogOpen} onOpenChange={setIsNotesDialogOpen}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
+        <DialogContent>
+          <DialogHeader>
             <DialogTitle>Add Notes</DialogTitle>
             <DialogDescription>
               Record notes or reasoning for decisions
             </DialogDescription>
           </DialogHeader>
           
-          <div className="overflow-y-auto flex-1 p-6">
-            <div className="grid gap-4">
-              {selectedOrderForNotes && (
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm font-medium text-gray-700">
-                    Order #{selectedOrderForNotes.id} - {selectedOrderForNotes.supplierName}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    Status: {selectedOrderForNotes.goodsReceived ? 'Goods Received' : 'Ordered'}
-                  </p>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="orderNotes">Notes</Label>
-                <Textarea
-                  id="notes"
-                  name="notes"
-                  value={notesForm.notes}
-                  onChange={handleNotesInputChange}
-                  placeholder="Record notes about delays, quality issues, decisions..."
-                  rows={5}
-                />
-              </div>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea
+                id="notes"
+                name="notes"
+                value={notesForm.notes}
+                onChange={handleNotesInputChange}
+                placeholder="Record notes about delays, quality issues, decisions..."
+                rows={5}
+              />
             </div>
           </div>
 
-          <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
+          <DialogFooter>
             <Button variant="outline" onClick={() => setIsNotesDialogOpen(false)}>
               Cancel
             </Button>
             <Button onClick={handleUpdateNotes}>
-              <CheckCircle className="h-4 w-4 mr-2" />
               Save Notes
             </Button>
           </DialogFooter>
@@ -2225,13 +1669,7 @@ Procurement Team`;
             <AlertDialogTitle>Delete Order</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete order #{selectedOrder?.id}? 
-              This action cannot be undone and will remove:
-              <ul className="list-disc pl-5 mt-2 space-y-1">
-                <li>Order record</li>
-                <li>Payment information</li>
-                <li>Delivery records</li>
-                <li>Associated notes</li>
-              </ul>
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
