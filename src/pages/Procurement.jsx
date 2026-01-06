@@ -159,12 +159,6 @@ export default function Procurement() {
         apiService.supply.getAllocations()
       ]);
       
-      // Log the data
-      console.log('📊 Farmers loaded:', farmersData?.length);
-      console.log('📊 Allocations loaded:', allocationsData?.length);
-      console.log('📊 Farmers sample:', farmersData?.[0]);
-      console.log('📊 Allocations sample:', allocationsData?.[0]);
-      
       setOrders(ordersData || []);
       setFarmers(farmersData || []);
       setAggregators(aggregatorsData || []);
@@ -237,45 +231,46 @@ export default function Procurement() {
 
   const stats = calculateStats();
 
-  // Get farmers with scheduled supply allocations
+  // SIMPLE FIX: Get farmers from supply allocations directly
   const getFarmersWithAllocations = () => {
-    console.log('=== DEBUG: getFarmersWithAllocations START ===');
-    console.log('Farmers:', farmers);
-    console.log('Allocations:', supplyAllocations);
-    
-    if (!supplyAllocations?.length || !farmers?.length) {
-      console.log('No data available');
+    if (!supplyAllocations?.length) {
       return [];
     }
 
-    // Filter allocations with status 'scheduled'
+    // Get only scheduled allocations
     const scheduledAllocations = supplyAllocations.filter(a => a?.status === 'scheduled');
-    console.log('Scheduled allocations:', scheduledAllocations);
     
-    // Get unique farmer IDs from scheduled allocations
-    const farmerIds = [...new Set(scheduledAllocations.map(a => a?.farmerId))];
-    console.log('Farmer IDs with scheduled allocations:', farmerIds);
+    if (scheduledAllocations.length === 0) {
+      return [];
+    }
+
+    // Create farmer objects directly from allocation data
+    const farmersFromAllocations = scheduledAllocations.map(allocation => ({
+      id: allocation.farmerId,
+      name: allocation.farmerName,
+      county: allocation.farmerCounty,
+      crop: allocation.farmerCrop,
+      phone: allocation.farmerPhone,
+      email: allocation.farmerEmail,
+      contact: allocation.farmerContact,
+      allocationDate: allocation.date,
+      allocationQuantity: allocation.quantity,
+      allocationNotes: allocation.notes,
+      allocationId: allocation.id
+    }));
+
+    // Remove duplicates (same farmer with multiple allocations)
+    const uniqueFarmers = [];
+    const seenIds = new Set();
     
-    // Filter farmers who have scheduled allocations
-    const farmersWithAllocations = farmers.filter(farmer => 
-      farmerIds.includes(farmer?.id)
-    );
-    
-    console.log('Farmers with allocations:', farmersWithAllocations);
-    
-    // Add allocations to each farmer
-    const result = farmersWithAllocations.map(farmer => {
-      const allocations = scheduledAllocations.filter(a => a?.farmerId === farmer?.id);
-      return {
-        ...farmer,
-        allocations: allocations
-      };
+    farmersFromAllocations.forEach(farmer => {
+      if (!seenIds.has(farmer.id)) {
+        seenIds.add(farmer.id);
+        uniqueFarmers.push(farmer);
+      }
     });
-    
-    console.log('Final result:', result);
-    console.log('=== DEBUG: getFarmersWithAllocations END ===');
-    
-    return result;
+
+    return uniqueFarmers;
   };
 
   // Handle Step 1 form input changes
@@ -284,9 +279,8 @@ export default function Procurement() {
     setStep1Form(prev => ({ ...prev, [name]: value }));
   };
 
-  // Handle Step 1 select changes
+  // Handle Step 1 select changes - SIMPLIFIED
   const handleStep1SelectChange = (name, value) => {
-    console.log('📝 Select change:', name, value);
     setStep1Form(prev => ({ ...prev, [name]: value }));
     
     if (name === 'supplierType') {
@@ -305,34 +299,31 @@ export default function Procurement() {
       }));
     }
     
-    // When farmer is selected, auto-fill their details
+    // When farmer is selected, auto-fill their details from allocation
     if (name === 'farmerId' && value) {
-      console.log('👨‍🌾 Farmer selected:', value);
+      // Find the farmer from our allocations list
+      const farmerFromAllocation = getFarmersWithAllocations().find(f => f.id.toString() === value.toString());
       
-      // Find the selected farmer
-      const farmer = farmers.find(f => f.id?.toString() === value?.toString());
-      console.log('Found farmer:', farmer);
-      
-      if (farmer) {
-        // Find scheduled allocation for this farmer
-        const allocation = supplyAllocations.find(a => 
-          a?.farmerId?.toString() === farmer?.id?.toString() && 
+      if (farmerFromAllocation) {
+        // Find all scheduled allocations for this farmer
+        const farmerAllocations = supplyAllocations.filter(a => 
+          a?.farmerId?.toString() === value?.toString() && 
           a?.status === 'scheduled'
         );
         
-        console.log('Found allocation:', allocation);
+        // Use the first allocation for auto-fill
+        const firstAllocation = farmerAllocations[0];
         
-        // Auto-fill the form with farmer and allocation data
         setStep1Form(prev => ({
           ...prev,
-          supplierName: farmer.name || '',
-          supplierContact: farmer.name || '', // Use farmer name as contact
-          supplierPhone: farmer.phone || '',
-          supplierEmail: farmer.email || '',
+          supplierName: farmerFromAllocation.name || '',
+          supplierContact: farmerFromAllocation.contact || farmerFromAllocation.name || '',
+          supplierPhone: farmerFromAllocation.phone || '',
+          supplierEmail: farmerFromAllocation.email || '',
           isContracted: 'yes',
-          cropName: farmer.crop || '',
-          quantityOrdered: allocation?.quantity?.toString() || '',
-          deliveryDate: allocation?.date ? new Date(allocation.date).toISOString().split('T')[0] : '',
+          cropName: farmerFromAllocation.crop || '',
+          quantityOrdered: firstAllocation?.quantity?.toString() || '',
+          deliveryDate: firstAllocation?.date ? new Date(firstAllocation.date).toISOString().split('T')[0] : '',
           pricePerUnit: '15000', // Default price
           lpoNumber: `LPO-${new Date().getFullYear()}-${String(orders.length + 1).padStart(3, '0')}`
         }));
@@ -455,17 +446,21 @@ export default function Procurement() {
 
       // Add farmer-specific data
       if (step1Form.supplierType === 'farmer' && step1Form.farmerId) {
-        const farmer = farmers.find(f => f?.id?.toString() === step1Form.farmerId?.toString());
-        if (farmer) {
-          newOrder.farmerId = farmer.id;
-          newOrder.farmerContractNumber = farmer.contractNumber;
-          newOrder.farmerCounty = farmer.county;
-          newOrder.supplierPhone = farmer.phone || '';
-          newOrder.supplierEmail = farmer.email || '';
+        // Find the farmer from allocations
+        const farmerFromAllocation = getFarmersWithAllocations().find(f => 
+          f.id.toString() === step1Form.farmerId.toString()
+        );
+        
+        if (farmerFromAllocation) {
+          newOrder.farmerId = farmerFromAllocation.id;
+          newOrder.farmerContractNumber = `CONTRACT-${farmerFromAllocation.id}`;
+          newOrder.farmerCounty = farmerFromAllocation.county;
+          newOrder.supplierPhone = farmerFromAllocation.phone || '';
+          newOrder.supplierEmail = farmerFromAllocation.email || '';
           
           // Mark the allocation as used (convert to in-progress)
           const allocation = supplyAllocations.find(a => 
-            a?.farmerId?.toString() === farmer?.id?.toString() && 
+            a?.farmerId?.toString() === farmerFromAllocation.id?.toString() && 
             a.status === 'scheduled'
           );
           if (allocation) {
@@ -931,21 +926,14 @@ Procurement Team`;
             </div>
             
             <div>
-              <h4 className="font-semibold text-blue-400">Farmers Data (First):</h4>
-              <pre className="bg-gray-800 p-2 rounded overflow-auto max-h-32">
-                {JSON.stringify(farmers[0] || {}, null, 2)}
-              </pre>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold text-yellow-400">Allocations Data (First):</h4>
+              <h4 className="font-semibold text-blue-400">First Allocation:</h4>
               <pre className="bg-gray-800 p-2 rounded overflow-auto max-h-32">
                 {JSON.stringify(supplyAllocations[0] || {}, null, 2)}
               </pre>
             </div>
             
             <div>
-              <h4 className="font-semibold text-purple-400">getFarmersWithAllocations():</h4>
+              <h4 className="font-semibold text-yellow-400">Available Farmers List:</h4>
               <pre className="bg-gray-800 p-2 rounded overflow-auto max-h-32">
                 {JSON.stringify(getFarmersWithAllocations(), null, 2)}
               </pre>
@@ -1127,61 +1115,23 @@ Procurement Team`;
                             )}
                           </div>
 
-                          {/* Farmer Selection - SIMPLIFIED AND FIXED */}
+                          {/* SIMPLIFIED FARMER SELECTION */}
                           {step1Form.supplierType === 'farmer' && (
                             <>
                               <div className="space-y-2">
                                 <Label htmlFor="farmer">Select Farmer *</Label>
                                 
-                                {/* Debug info */}
+                                {/* Show available farmers count */}
                                 <div className="text-xs bg-blue-50 p-2 rounded mb-2">
-                                  <div className="font-medium mb-1">Data Status:</div>
-                                  <div className="grid grid-cols-2 gap-1">
-                                    <span>Farmers loaded:</span>
-                                    <span className={`font-medium ${farmers.length > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                      {farmers.length}
-                                    </span>
-                                    <span>Allocations loaded:</span>
-                                    <span className={`font-medium ${supplyAllocations.length > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                      {supplyAllocations.length}
-                                    </span>
-                                    <span>Scheduled allocations:</span>
-                                    <span className="font-medium text-blue-600">
-                                      {supplyAllocations.filter(a => a.status === 'scheduled').length}
-                                    </span>
-                                    <span>Available farmers:</span>
-                                    <span className={`font-medium ${getFarmersWithAllocations().length > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                      {getFarmersWithAllocations().length}
+                                  <div className="flex justify-between items-center">
+                                    <span className="font-medium">Available Farmers from Supply Planning:</span>
+                                    <span className={`px-2 py-1 rounded ${getFarmersWithAllocations().length > 0 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                      {getFarmersWithAllocations().length} farmers
                                     </span>
                                   </div>
-                                  
-                                  {/* TEST: Show the actual farmer data */}
-                                  {getFarmersWithAllocations().length > 0 && (
-                                    <div className="mt-2 p-2 bg-green-50 rounded border border-green-200">
-                                      <div className="font-medium text-green-700">✅ Farmer found in data:</div>
-                                      <div className="text-xs text-green-600">
-                                        ID: {getFarmersWithAllocations()[0].id}<br/>
-                                        Name: {getFarmersWithAllocations()[0].name}<br/>
-                                        Crop: {getFarmersWithAllocations()[0].crop}<br/>
-                                        Phone: {getFarmersWithAllocations()[0].phone}<br/>
-                                        Allocations: {getFarmersWithAllocations()[0].allocations?.length || 0}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                                
-                                {/* TEMPORARY TEST: Render a simple div to see if farmers are available */}
-                                <div className="p-2 bg-yellow-50 border border-yellow-200 rounded mb-2">
-                                  <p className="text-sm font-medium">Available Farmers (for testing):</p>
-                                  {getFarmersWithAllocations().length === 0 ? (
-                                    <div className="text-sm text-red-600">❌ No farmers found</div>
-                                  ) : (
-                                    getFarmersWithAllocations().map(farmer => (
-                                      <div key={farmer.id} className="text-sm">
-                                        ✅ {farmer.name} (ID: {farmer.id}) - Crop: {farmer.crop}
-                                      </div>
-                                    ))
-                                  )}
+                                  <p className="text-blue-600 mt-1">
+                                    These farmers have scheduled supply dates in Supply Planning
+                                  </p>
                                 </div>
                                 
                                 <select
@@ -1202,19 +1152,22 @@ Procurement Team`;
                                     </option>
                                   ) : (
                                     getFarmersWithAllocations().map(farmer => {
-                                      console.log('Rendering option for farmer:', {
-                                        id: farmer.id,
-                                        name: farmer.name,
-                                        crop: farmer.crop,
-                                        hasCrop: !!farmer.crop,
-                                        allocationsCount: farmer.allocations?.length || 0
-                                      });
+                                      // Get scheduled allocations for this farmer
+                                      const farmerAllocations = supplyAllocations.filter(a => 
+                                        a?.farmerId?.toString() === farmer.id?.toString() && 
+                                        a?.status === 'scheduled'
+                                      );
+                                      
                                       return (
                                         <option key={farmer.id} value={farmer.id}>
                                           🌾 {farmer.name || 'Unnamed Farmer'} 
                                           {farmer.crop ? ` | ${farmer.crop}` : ''}
                                           {farmer.county ? ` | ${farmer.county}` : ''}
-                                          {farmer.allocations?.length > 0 ? ` | ${farmer.allocations.length} scheduled` : ''}
+                                          {farmerAllocations.length > 0 && (
+                                            <span className="text-green-600">
+                                              {' '}| {farmerAllocations.length} scheduled
+                                            </span>
+                                          )}
                                         </option>
                                       );
                                     })
@@ -1222,17 +1175,22 @@ Procurement Team`;
                                 </select>
                               </div>
                               
+                              {/* Show allocation details when farmer is selected */}
                               {step1Form.farmerId && (
                                 <div className="p-3 bg-green-50 rounded-lg border border-green-200">
                                   <p className="text-sm font-medium text-green-700 mb-2 flex items-center gap-1">
                                     <Calendar className="h-3 w-3" />
-                                    Available Supply Allocations:
+                                    Scheduled Supply Allocations:
                                   </p>
+                                  
                                   {(() => {
-                                    const selectedFarmer = getFarmersWithAllocations()
-                                      .find(f => f?.id?.toString() === step1Form.farmerId?.toString());
+                                    // Find all scheduled allocations for this farmer
+                                    const farmerAllocations = supplyAllocations.filter(a => 
+                                      a?.farmerId?.toString() === step1Form.farmerId?.toString() && 
+                                      a?.status === 'scheduled'
+                                    );
                                     
-                                    if (!selectedFarmer?.allocations?.length) {
+                                    if (farmerAllocations.length === 0) {
                                       return (
                                         <p className="text-sm text-yellow-600">
                                           No scheduled allocations found for this farmer.
@@ -1240,7 +1198,7 @@ Procurement Team`;
                                       );
                                     }
                                     
-                                    return selectedFarmer.allocations.map(allocation => (
+                                    return farmerAllocations.map(allocation => (
                                       <div key={allocation.id} className="text-sm text-green-600 mb-2 p-2 bg-green-100 rounded">
                                         <div className="flex items-center justify-between mb-1">
                                           <span className="font-medium">
@@ -1309,7 +1267,7 @@ Procurement Team`;
                             </>
                           )}
 
-                          {/* Supplier Details */}
+                          {/* Supplier Details - Auto-filled from farmer selection */}
                           <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                               <Label htmlFor="supplierName">Supplier Name *</Label>
