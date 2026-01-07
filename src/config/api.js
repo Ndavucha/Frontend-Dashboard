@@ -19,12 +19,22 @@ export const API_CONFIG = {
     // Auth
     LOGIN: '/api/auth/login',
     
+   
     // Analytics
-    OVERVIEW_STATS: '/api/analytics/overview',
-    SUPPLY_DEMAND_CHART: '/api/analytics/supply-demand',
-    VARIETY_DISTRIBUTION: '/api/analytics/variety-distribution',
-    RISK_ALERTS: '/api/analytics/risk-alerts',
-    COST_ANALYSIS: '/api/analytics/cost-analysis',
+    ANALYTICS: {
+      OVERVIEW_STATS: '/analytics/overview',
+      SUPPLY_DEMAND_CHART: '/analytics/supply-demand',
+      VARIETY_DISTRIBUTION: '/analytics/variety-distribution',
+      PERFORMANCE_TRENDS: '/analytics/performance-trends',
+      FARMER_DEMOGRAPHICS: '/analytics/farmer-demographics',
+      COUNTY_DISTRIBUTION: '/analytics/county-distribution',
+      DEFICIT_ANALYSIS: '/analytics/deficit-analysis',
+      FINANCIAL_METRICS: '/analytics/financial-metrics',
+      PREDICTIVE_INSIGHTS: '/analytics/predictive-insights',
+      TREND_FORECAST: '/analytics/trend-forecast',
+      RISK_ALERTS: '/analytics/risk-alerts',
+      COST_ANALYSIS: '/analytics/cost-analysis'
+    },
     
     // Farmers
     FARMERS: '/api/farmers',
@@ -70,3 +80,4 @@ export const WS_EVENTS = {
   RISK_ALERT: 'risk_alert',
   NOTIFICATION: 'notification',
 };
+
