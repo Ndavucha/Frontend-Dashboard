@@ -854,9 +854,9 @@ export default function Procurement() {
         </TabsContent>
       </Tabs>
 
-      {/* Receive Goods Dialog */}
+      {/* Receive Goods Dialog - Made scrollable */}
       <Dialog open={isReceiveDialogOpen} onOpenChange={setIsReceiveDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Receive Goods</DialogTitle>
             <DialogDescription>
@@ -1023,7 +1023,7 @@ export default function Procurement() {
             )}
           </div>
           
-          <DialogFooter>
+          <DialogFooter className="sticky bottom-0 bg-white pt-4 border-t">
             <Button variant="outline" onClick={() => setIsReceiveDialogOpen(false)}>
               Cancel
             </Button>
@@ -1035,9 +1035,9 @@ export default function Procurement() {
         </DialogContent>
       </Dialog>
 
-      {/* Manual Order Dialog */}
+      {/* Manual Order Dialog - Made scrollable */}
       <Dialog open={isManualOrderDialogOpen} onOpenChange={setIsManualOrderDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create Manual Order</DialogTitle>
             <DialogDescription>
@@ -1151,13 +1151,118 @@ export default function Procurement() {
             </div>
           </div>
           
-          <DialogFooter>
+          <DialogFooter className="sticky bottom-0 bg-white pt-4 border-t">
             <Button variant="outline" onClick={() => setIsManualOrderDialogOpen(false)}>
               Cancel
             </Button>
             <Button onClick={handleCreateManualOrder}>
               <CheckCircle className="h-4 w-4 mr-2" />
               Create Order
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Supplement Request Dialog - Added for consistency */}
+      <Dialog open={isSupplementDialogOpen} onOpenChange={setIsSupplementDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Request Supply Supplement</DialogTitle>
+            <DialogDescription>
+              Fill supply gaps from aggregators or marketplace
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+              <h4 className="font-medium text-red-800 mb-1">Current Supply Gap</h4>
+              <p className="text-sm text-red-600">
+                Total shortage: {metrics.deficit} tons
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="quantity">Quantity Required (tons) *</Label>
+              <Input
+                id="quantity"
+                name="quantity"
+                type="number"
+                value={supplementForm.quantity}
+                onChange={(e) => setSupplementForm(prev => ({ ...prev, quantity: e.target.value }))}
+                placeholder="Enter quantity"
+                min="0.1"
+                step="0.1"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="urgency">Urgency Level</Label>
+              <Select
+                value={supplementForm.urgency}
+                onValueChange={(value) => setSupplementForm(prev => ({ ...prev, urgency: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select urgency level" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low - Within 2 weeks</SelectItem>
+                  <SelectItem value="medium">Medium - Within 1 week</SelectItem>
+                  <SelectItem value="high">High - Within 3 days</SelectItem>
+                  <SelectItem value="critical">Critical - Within 24 hours</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="notes">Additional Notes</Label>
+              <Textarea
+                id="notes"
+                name="notes"
+                value={supplementForm.notes}
+                onChange={(e) => setSupplementForm(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Crop specifications, quality requirements..."
+                rows={3}
+              />
+            </div>
+
+            <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+              <h4 className="font-medium text-green-800 mb-2">Request Options</h4>
+              <div className="space-y-2 text-sm text-green-700">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span>Send to connected aggregators</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span>Post to FarmMall marketplace</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span>Email procurement team</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter className="sticky bottom-0 bg-white pt-4 border-t">
+            <Button variant="outline" onClick={() => setIsSupplementDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => {
+                toast.success(`Supplement request for ${supplementForm.quantity} tons sent!`);
+                setIsSupplementDialogOpen(false);
+                setSupplementForm({
+                  quantity: '',
+                  urgency: 'medium',
+                  notes: ''
+                });
+              }} 
+              disabled={!supplementForm.quantity}
+            >
+              <ShoppingCart className="h-4 w-4 mr-2" />
+              Request Supplement
             </Button>
           </DialogFooter>
         </DialogContent>
