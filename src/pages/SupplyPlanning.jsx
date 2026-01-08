@@ -21,10 +21,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { 
   TrendingUp, 
+  TrendingDown,
   Calendar as CalendarIcon, 
   Mail,
   Phone,
@@ -34,703 +42,805 @@ import {
   Send,
   Truck,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  ChevronDown,
+  Users,
+  ShoppingCart,
+  DollarSign,
+  Info,
+  Scale // Changed from lowercase 'scale' to capitalized 'Scale'
 } from 'lucide-react';
 import { apiService } from '@/api/services';
 import { toast } from 'sonner';
 
 export default function SupplyPlanning() {
   const [allocations, setAllocations] = useState([]);
+  const [demandForecast, setDemandForecast] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
+  const [isSupplementDialogOpen, setIsSupplementDialogOpen] = useState(false);
+  const [expandedRow, setExpandedRow] = useState(null);
   const [selectedAllocation, setSelectedAllocation] = useState(null);
   const [orderForm, setOrderForm] = useState({
     orderQuantity: '',
     orderNotes: ''
   });
+  const [supplementForm, setSupplementForm] = useState({
+    quantity: '',
+    urgency: 'medium',
+    notes: ''
+  });
 
-  // Fetch allocations from backend
-  const fetchAllocations = async () => {
+  // Fetch data
+  const fetchData = async () => {
     try {
       setLoading(true);
-      console.log('🔄 Fetching allocations...');
       
-      const allocationsResponse = await apiService.supply.getAllocations();
-      console.log('📊 Allocations response:', allocationsResponse);
+      const [allocationsResponse, demandResponse] = await Promise.all([
+        apiService.supply.getAllocations(),
+        apiService.procurement.getDemandForecast(30) // 30-day forecast
+      ]);
       
-      // Ensure we have an array
       const allocationsArray = Array.isArray(allocationsResponse) ? allocationsResponse : [];
+      const demandArray = Array.isArray(demandResponse) ? demandResponse : [];
       
-      // Filter to only show scheduled allocations (not completed or cancelled)
-      const activeAllocations = allocationsArray.filter(
-        allocation => allocation.status === 'scheduled' || allocation.status === 'in-progress'
-      );
-      
-      setAllocations(activeAllocations);
-      
-      console.log('✅ Allocations loaded:', activeAllocations.length);
+      setAllocations(allocationsArray);
+      setDemandForecast(demandArray);
       
     } catch (error) {
-      console.error('❌ Error fetching allocations:', error);
-      toast.error('Failed to load supply allocations');
+      console.error('Error fetching data:', error);
+      toast.error('Failed to load supply planning data');
       setAllocations([]);
+      setDemandForecast([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchAllocations();
+    fetchData();
   }, []);
 
-  // Handle order form input changes
-  const handleOrderInputChange = (e) => {
-    const { name, value } = e.target;
-    setOrderForm(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  // Open order dialog
-  const openOrderDialog = (allocation) => {
-    setSelectedAllocation(allocation);
-    setOrderForm({
-      orderQuantity: allocation.quantity.toString(),
-      orderNotes: ''
+  // Update the calculateSupplyDemandBalance function
+const calculateSupplyDemandBalance = () => {
+  const balanceData = [];
+  
+  // If no demand forecast but we have allocations, show allocations with 0 demand
+  if (demandForecast.length === 0 && allocations.length > 0) {
+    // Group allocations by date
+    const allocationsByDate = {};
+    allocations.forEach(allocation => {
+      if (!allocation.date) return;
+      const dateKey = new Date(allocation.date).toISOString().split('T')[0];
+      if (!allocationsByDate[dateKey]) {
+        allocationsByDate[dateKey] = [];
+      }
+      allocationsByDate[dateKey].push(allocation);
     });
-    setIsOrderDialogOpen(true);
-  };
 
-  // Send order to farmer
-  const handleSendOrder = async () => {
-    try {
-      if (!selectedAllocation) {
-        toast.error('No allocation selected');
-        return;
-      }
-
-      if (!orderForm.orderQuantity || parseFloat(orderForm.orderQuantity) <= 0) {
-        toast.error('Please enter a valid order quantity');
-        return;
-      }
-
-      const orderQuantity = parseFloat(orderForm.orderQuantity);
+    // Show allocations with 0 demand for next 7 days
+    const today = new Date();
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(today);
+      date.setDate(date.getDate() + i);
+      const dateKey = date.toISOString().split('T')[0];
+      const dailyAllocations = allocationsByDate[dateKey] || [];
       
-      // Check if order quantity exceeds allocated quantity
-      if (orderQuantity > selectedAllocation.quantity) {
-        toast.error(`Order quantity (${orderQuantity}) cannot exceed allocated quantity (${selectedAllocation.quantity})`);
-        return;
-      }
-
-      // Prepare order data
-      const orderData = {
-        allocationId: selectedAllocation.id,
-        farmerId: selectedAllocation.farmerId,
-        farmerName: selectedAllocation.farmerName,
-        farmerEmail: selectedAllocation.farmerEmail,
-        farmerPhone: selectedAllocation.farmerPhone,
-        farmerCounty: selectedAllocation.farmerCounty,
-        farmerCrop: selectedAllocation.farmerCrop,
-        allocatedQuantity: selectedAllocation.quantity,
-        orderQuantity: orderQuantity,
-        orderNotes: orderForm.orderNotes,
-        orderDate: new Date().toISOString(),
-        status: 'order-sent',
-        expectedDeliveryDate: selectedAllocation.date
-      };
-
-      console.log('📤 Sending order:', orderData);
-
-      // In a real app, this would send email/SMS to farmer
-      // For now, we'll update the allocation status and show success message
+      const totalSupply = dailyAllocations.reduce((sum, a) => sum + (a.quantity || 0), 0);
+      const totalDemand = 0; // No demand forecast
+      const balance = totalSupply - totalDemand;
       
-      // Update allocation status to in-progress if it's scheduled
-      if (selectedAllocation.status === 'scheduled') {
-        const updatedAllocation = {
-          ...selectedAllocation,
-          status: 'in-progress',
-          orderQuantity: orderQuantity,
-          orderNotes: orderForm.orderNotes,
-          orderSentAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-
-        await apiService.supply.updateAllocation(selectedAllocation.id, updatedAllocation);
-        
-        // Update local state
-        setAllocations(prev => 
-          prev.map(a => 
-            a.id === selectedAllocation.id 
-              ? updatedAllocation
-              : a
-          )
-        );
-      }
-
-      // Simulate sending email/SMS
-      await simulateSendNotification(orderData);
-      
-      toast.success(`Order sent to ${selectedAllocation.farmerName}!`);
-      
-      // Close dialog and reset form
-      setIsOrderDialogOpen(false);
-      setOrderForm({
-        orderQuantity: '',
-        orderNotes: ''
+      balanceData.push({
+        date: date.toISOString(),
+        dateKey,
+        demand: totalDemand,
+        supply: totalSupply,
+        balance,
+        status: balance === 0 ? 'met' : balance < 0 ? 'shortage' : 'oversupply',
+        allocations: dailyAllocations,
+        color: balance === 0 ? 'green' : balance < 0 ? 'red' : 'blue'
       });
-      
-      // Refresh data
-      await fetchAllocations();
-      
-    } catch (error) {
-      console.error('❌ Error sending order:', error);
-      toast.error('Failed to send order');
     }
+  } else if (demandForecast.length > 0) {
+    // Original logic with demand forecast
+    const allocationsByDate = {};
+    allocations.forEach(allocation => {
+      if (!allocation.date) return;
+      const dateKey = new Date(allocation.date).toISOString().split('T')[0];
+      if (!allocationsByDate[dateKey]) {
+        allocationsByDate[dateKey] = [];
+      }
+      allocationsByDate[dateKey].push(allocation);
+    });
+
+    demandForecast.forEach(demand => {
+      const dateKey = new Date(demand.date).toISOString().split('T')[0];
+      const dailyAllocations = allocationsByDate[dateKey] || [];
+      
+      const totalSupply = dailyAllocations.reduce((sum, a) => sum + (a.quantity || 0), 0);
+      const totalDemand = demand.quantity || 0;
+      const balance = totalSupply - totalDemand;
+      
+      balanceData.push({
+        date: demand.date,
+        dateKey,
+        demand: totalDemand,
+        supply: totalSupply,
+        balance,
+        status: balance === 0 ? 'met' : balance < 0 ? 'shortage' : 'oversupply',
+        allocations: dailyAllocations,
+        color: balance === 0 ? 'green' : balance < 0 ? 'red' : 'blue'
+      });
+    });
+  }
+
+  // Sort by date
+  return balanceData.sort((a, b) => new Date(a.date) - new Date(b.date));
+};
+  // Toggle row expansion
+  const toggleRowExpansion = (dateKey) => {
+    setExpandedRow(expandedRow === dateKey ? null : dateKey);
   };
 
-  // Simulate sending notification to farmer
-  const simulateSendNotification = async (orderData) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        console.log('📧 Email sent to:', orderData.farmerEmail);
-        console.log('📱 SMS sent to:', orderData.farmerPhone);
-        console.log('📋 Order details:', {
-          farmer: orderData.farmerName,
-          crop: orderData.farmerCrop,
-          quantity: orderData.orderQuantity,
-          expectedDate: new Date(orderData.expectedDeliveryDate).toLocaleDateString()
-        });
-        resolve(true);
-      }, 1000);
+  // Format date
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', { 
+      weekday: 'short', 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
     });
   };
 
-  // Update allocation status
-  const handleStatusUpdate = async (allocationId, newStatus) => {
-    try {
-      const allocation = allocations.find(a => a.id === allocationId);
-      if (!allocation) {
-        toast.error('Allocation not found');
-        return;
-      }
-
-      const updatedAllocation = {
-        ...allocation,
-        status: newStatus,
-        updatedAt: new Date().toISOString()
-      };
-
-      await apiService.supply.updateAllocation(allocationId, updatedAllocation);
-      
-      // Update local state
-      setAllocations(prev => 
-        prev.map(a => 
-          a.id === allocationId 
-            ? { ...a, status: newStatus, updatedAt: new Date().toISOString() }
-            : a
-        )
-      );
-      
-      toast.success(`Status updated to ${newStatus}`);
-      
-      // Refresh data
-      await fetchAllocations();
-      
-    } catch (error) {
-      console.error('❌ Error updating status:', error);
-      toast.error('Failed to update status');
-    }
-  };
-
-  // Complete delivery
-  const handleCompleteDelivery = async (allocationId) => {
-    try {
-      const allocation = allocations.find(a => a.id === allocationId);
-      if (!allocation) {
-        toast.error('Allocation not found');
-        return;
-      }
-
-      const updatedAllocation = {
-        ...allocation,
-        status: 'completed',
-        deliveredAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-
-      await apiService.supply.updateAllocation(allocationId, updatedAllocation);
-      
-      // Update local state
-      setAllocations(prev => 
-        prev.map(a => 
-          a.id === allocationId 
-            ? { ...a, status: 'completed', deliveredAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
-            : a
-        )
-      );
-      
-      toast.success('Delivery marked as completed!');
-      
-      // Refresh data
-      await fetchAllocations();
-      
-    } catch (error) {
-      console.error('❌ Error completing delivery:', error);
-      toast.error('Failed to mark delivery as completed');
-    }
-  };
-
-  // Get status badge with icon
+  // Get status badge
   const getStatusBadge = (status) => {
     switch (status) {
-      case 'scheduled':
-        return (
-          <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 gap-1">
-            <CalendarIcon className="h-3 w-3" />
-            Scheduled
-          </Badge>
-        );
-      case 'in-progress':
-        return (
-          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 gap-1">
-            <Truck className="h-3 w-3" />
-            Order Sent
-          </Badge>
-        );
-      case 'completed':
-        return (
-          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 gap-1">
-            <PackageCheck className="h-3 w-3" />
-            Delivered
-          </Badge>
-        );
-      case 'cancelled':
-        return (
-          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 gap-1">
-            <XCircle className="h-3 w-3" />
-            Cancelled
-          </Badge>
-        );
+      case 'met':
+        return <Badge variant="success" className="gap-1">
+          <CheckCircle className="h-3 w-3" />
+          Demand Met
+        </Badge>;
+      case 'shortage':
+        return <Badge variant="destructive" className="gap-1">
+          <AlertCircle className="h-3 w-3" />
+          Shortage
+        </Badge>;
+      case 'oversupply':
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 gap-1">
+          <Info className="h-3 w-3" />
+          Oversupply
+        </Badge>;
       default:
         return <Badge variant="outline">Unknown</Badge>;
     }
   };
 
-  // Group allocations by date for display
-  const getGroupedAllocations = () => {
-    const grouped = {};
-    
-    allocations.forEach(allocation => {
-      const date = new Date(allocation.date).toDateString();
-      if (!grouped[date]) {
-        grouped[date] = [];
+  // Get balance display
+  const getBalanceDisplay = (balance) => {
+    const formatted = balance.toFixed(1);
+    if (balance === 0) {
+      return <span className="text-green-600 font-medium">0 tons</span>;
+    } else if (balance < 0) {
+      return <span className="text-red-600 font-medium">{formatted} tons</span>;
+    } else {
+      return <span className="text-blue-600 font-medium">+{formatted} tons</span>;
+    }
+  };
+
+  // Handle supplement request
+  const handleRequestSupplement = async () => {
+    try {
+      if (!supplementForm.quantity || parseFloat(supplementForm.quantity) <= 0) {
+        toast.error('Please enter a valid quantity');
+        return;
       }
-      grouped[date].push(allocation);
-    });
-    
-    // Sort dates chronologically
-    return Object.entries(grouped)
-      .sort(([dateA], [dateB]) => new Date(dateA) - new Date(dateB))
-      .reduce((acc, [date, allocations]) => {
-        acc[date] = allocations.sort((a, b) => a.farmerName.localeCompare(b.farmerName));
-        return acc;
-      }, {});
+
+      console.log('Requesting supplement:', supplementForm);
+      
+      await apiService.procurement.requestSupplement(supplementForm);
+      
+      toast.success(`Supplement request for ${supplementForm.quantity} tons sent!`);
+      setIsSupplementDialogOpen(false);
+      setSupplementForm({
+        quantity: '',
+        urgency: 'medium',
+        notes: ''
+      });
+      
+    } catch (error) {
+      console.error('Error requesting supplement:', error);
+      toast.error('Failed to send supplement request');
+    }
   };
 
-  // Format date for display
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    });
+  // Handle send order
+  const handleSendOrder = async () => {
+    try {
+      if (!selectedAllocation) return;
+      
+      const orderData = {
+        farmerId: selectedAllocation.farmerId,
+        farmerName: selectedAllocation.farmerName,
+        crop: selectedAllocation.farmerCrop,
+        quantity: parseFloat(orderForm.orderQuantity),
+        notes: orderForm.orderNotes,
+        expectedDeliveryDate: selectedAllocation.date
+      };
+      
+      await apiService.procurement.createOrder(orderData);
+      
+      toast.success(`Order sent to ${selectedAllocation.farmerName}!`);
+      setIsOrderDialogOpen(false);
+      setOrderForm({ orderQuantity: '', orderNotes: '' });
+      
+      // Refresh data
+      fetchData();
+      
+    } catch (error) {
+      console.error('Error sending order:', error);
+      toast.error('Failed to send order');
+    }
   };
 
-  // Calculate total allocated quantity
-  const calculateTotalAllocated = () => {
-    return allocations.reduce((total, allocation) => total + (allocation.quantity || 0), 0);
-  };
-
-  // Calculate total orders sent
-  const calculateTotalOrders = () => {
-    return allocations.filter(a => a.status === 'in-progress' || a.status === 'completed').length;
-  };
+  // Calculate totals
+  const balanceData = calculateSupplyDemandBalance();
+  const totalDemand = balanceData.reduce((sum, d) => sum + d.demand, 0);
+  const totalSupply = balanceData.reduce((sum, d) => sum + d.supply, 0);
+  const totalBalance = totalSupply - totalDemand;
+  const shortageDays = balanceData.filter(d => d.status === 'shortage').length;
+  const metDays = balanceData.filter(d => d.status === 'met').length;
 
   if (loading) {
     return (
       <DashboardLayout
-        title="Supply Orders"
-        description="Send orders to allocated farmers and track deliveries"
+        title="Supply Planning"
+        description="Plan and manage supply against company demand"
       >
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-            <p className="mt-4 text-muted-foreground">Loading supply orders...</p>
+            <p className="mt-4 text-muted-foreground">Loading supply data...</p>
           </div>
         </div>
       </DashboardLayout>
     );
   }
 
-  const groupedAllocations = getGroupedAllocations();
-  const totalOrders = calculateTotalOrders();
-  const totalAllocated = calculateTotalAllocated();
-
   return (
     <DashboardLayout
-      title="Supply Orders"
-      description="Send orders to allocated farmers and track deliveries. Farmers are allocated in the Farmers page."
+      title="Supply Planning"
+      description="Plan and manage supply against company demand"
     >
-      <Tabs defaultValue="orders" className="space-y-6">
-        <TabsList className="bg-muted/50 p-1">
-          <TabsTrigger value="orders" className="gap-2">
-            <Truck className="h-4 w-4" />
-            Orders & Deliveries
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="orders" className="animate-fade-in space-y-6">
-          {/* Summary Cards */}
-          <div className="grid gap-4 md:grid-cols-3">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-center">
-                  <div className="flex items-center justify-center mb-2">
-                    <CalendarIcon className="h-5 w-5 text-blue-600 mr-2" />
-                    <p className="text-2xl font-bold">{allocations.length}</p>
-                  </div>
-                  <p className="text-sm text-muted-foreground">Active Allocations</p>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-center">
-                  <div className="flex items-center justify-center mb-2">
-                    <Send className="h-5 w-5 text-green-600 mr-2" />
-                    <p className="text-2xl font-bold">{totalOrders}</p>
-                  </div>
-                  <p className="text-sm text-muted-foreground">Orders Sent</p>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-center">
-                  <div className="flex items-center justify-center mb-2">
-                    <PackageCheck className="h-5 w-5 text-purple-600 mr-2" />
-                    <p className="text-2xl font-bold">{totalAllocated.toFixed(1)}</p>
-                  </div>
-                  <p className="text-sm text-muted-foreground">Total Planned (tons)</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
+      <div className="space-y-6">
+        {/* Summary Cards */}
+        <div className="grid gap-4 md:grid-cols-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <div className="flex items-center justify-center mb-2">
+                  <TrendingUp className="h-5 w-5 text-blue-600 mr-2" />
+                  <p className="text-2xl font-bold">{totalDemand.toFixed(1)}</p>
+                </div>
+                <p className="text-sm text-muted-foreground">Total Demand (tons)</p>
+                <p className="text-xs text-blue-600 mt-1">
+                  Next 30 days
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <div className="flex items-center justify-center mb-2">
+                  <PackageCheck className="h-5 w-5 text-green-600 mr-2" />
+                  <p className="text-2xl font-bold">{totalSupply.toFixed(1)}</p>
+                </div>
+                <p className="text-sm text-muted-foreground">Total Supply (tons)</p>
+                <p className="text-xs text-green-600 mt-1">
+                  Planned supply
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <div className="flex items-center justify-center mb-2">
+                  <DollarSign className="h-5 w-5 text-amber-600 mr-2" />
+                  <p className="text-2xl font-bold">{totalBalance.toFixed(1)}</p>
+                </div>
+                <p className="text-sm text-muted-foreground">Overall Balance</p>
+                <p className={`text-xs mt-1 ${totalBalance === 0 ? 'text-green-600' : totalBalance < 0 ? 'text-red-600' : 'text-blue-600'}`}>
+                  {totalBalance === 0 ? 'Balanced' : totalBalance < 0 ? 'Shortage' : 'Oversupply'}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <div className="flex items-center justify-center mb-2">
+                  <CalendarIcon className="h-5 w-5 text-purple-600 mr-2" />
+                  <p className="text-2xl font-bold">{shortageDays}</p>
+                </div>
+                <p className="text-sm text-muted-foreground">Shortage Days</p>
+                <p className="text-xs text-purple-600 mt-1">
+                  {metDays} days demand met
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Supply-Demand Balance Table */}
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <CardTitle className="flex items-center gap-2">
-                  <Truck className="h-5 w-5 text-primary" />
-                  Orders & Deliveries
+                  <Scale className="h-5 w-5 text-primary" />
+                  Supply vs Demand Balance
                 </CardTitle>
                 <CardDescription>
-                  Send orders to allocated farmers and track delivery status.
+                  Daily comparison of supply against company demand
                 </CardDescription>
               </div>
               <div className="flex gap-2">
                 <Button 
                   size="sm"
                   variant="outline"
-                  onClick={fetchAllocations}
-                  title="Refresh data"
+                  onClick={fetchData}
                 >
                   <RefreshCw className="h-4 w-4" />
                 </Button>
+                <Button 
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setIsSupplementDialogOpen(true)}
+                >
+                  <ShoppingCart className="h-4 w-4 mr-2" />
+                  Request Supplement
+                </Button>
               </div>
+            </div>
+          </CardHeader>
+          
+          <CardContent>
+           {balanceData.length === 0 ? (
+  <div className="text-center py-12">
+    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
+      <CalendarIcon className="h-8 w-8 text-gray-400" />
+    </div>
+    <h3 className="text-lg font-semibold text-gray-700 mb-2">
+      No Supply-Demand Data
+    </h3>
+    <p className="text-gray-500 mb-6 max-w-md mx-auto">
+      {allocations.length === 0 
+        ? 'Add farmer allocations first. Allocate farmers in the Farmers page.' 
+        : 'Add demand forecasts to see supply-demand balance.'}
+    </p>
+    {allocations.length === 0 && (
+      <Button onClick={() => window.location.href = '/farmers'}>
+        <Users className="h-4 w-4 mr-2" />
+        Go to Farmers
+      </Button>
+    )}
+  </div>
+      ) : (
+              <div className="rounded-lg border overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="w-12"></TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Demand (tons)</TableHead>
+                      <TableHead>Supply (tons)</TableHead>
+                      <TableHead>Balance</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {balanceData.map((item) => (
+                      <>
+                        <TableRow key={item.dateKey} className="hover:bg-muted/30">
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => toggleRowExpansion(item.dateKey)}
+                              className="h-8 w-8"
+                            >
+                              <ChevronDown className={`h-4 w-4 transition-transform ${
+                                expandedRow === item.dateKey ? 'rotate-180' : ''
+                              }`} />
+                            </Button>
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {formatDate(item.date)}
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-medium">{item.demand.toFixed(1)}</span>
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-medium">{item.supply.toFixed(1)}</span>
+                          </TableCell>
+                          <TableCell>
+                            {getBalanceDisplay(item.balance)}
+                          </TableCell>
+                          <TableCell>
+                            {getStatusBadge(item.status)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              {item.status === 'shortage' && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSupplementForm(prev => ({
+                                      ...prev,
+                                      quantity: Math.abs(item.balance).toString()
+                                    }));
+                                    setIsSupplementDialogOpen(true);
+                                  }}
+                                >
+                                  <ShoppingCart className="h-4 w-4 mr-1" />
+                                  Fill Gap
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        
+                        {/* Expanded Row - Farmer Details */}
+                        {expandedRow === item.dateKey && (
+                          <TableRow className="bg-blue-50">
+                            <TableCell colSpan={7}>
+                              <div className="p-4">
+                                <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                                  <Users className="h-4 w-4" />
+                                  Farmer Contributions for {formatDate(item.date)}
+                                </h4>
+                                
+                                {item.allocations.length === 0 ? (
+                                  <p className="text-gray-500 text-sm">No farmers allocated for this date</p>
+                                ) : (
+                                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                    {item.allocations.map((allocation, index) => (
+                                      <div key={index} className="bg-white p-4 rounded-lg border shadow-sm">
+                                        <div className="flex items-start justify-between mb-3">
+                                          <div>
+                                            <p className="font-medium text-gray-800">{allocation.farmerName}</p>
+                                            <p className="text-sm text-gray-600">{allocation.farmerCounty}</p>
+                                          </div>
+                                          <Badge variant="outline">
+                                            {allocation.quantity.toFixed(1)} tons
+                                          </Badge>
+                                        </div>
+                                        
+                                        <div className="space-y-2 text-sm">
+                                          <div className="flex items-center gap-2">
+                                            <Phone className="h-3 w-3 text-gray-400" />
+                                            <span>{allocation.farmerPhone || 'No phone'}</span>
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                            <Mail className="h-3 w-3 text-gray-400" />
+                                            <span>{allocation.farmerEmail || 'No email'}</span>
+                                          </div>
+                                        </div>
+                                        
+                                        <div className="mt-4 pt-4 border-t">
+                                          <div className="flex items-center justify-between">
+                                            <span className="text-sm text-gray-600">Crop:</span>
+                                            <span className="font-medium">{allocation.farmerCrop}</span>
+                                          </div>
+                                          
+                                          <div className="mt-2">
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className="w-full"
+                                              onClick={() => {
+                                                setSelectedAllocation(allocation);
+                                                setOrderForm({
+                                                  orderQuantity: allocation.quantity.toString(),
+                                                  orderNotes: ''
+                                                });
+                                                setIsOrderDialogOpen(true);
+                                              }}
+                                            >
+                                              <Send className="h-3 w-3 mr-1" />
+                                              Send Order
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Summary Stats */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Gap Analysis */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-amber-600" />
+                Gap Analysis Summary
+              </CardTitle>
+              <CardDescription>Supply-demand gap insights</CardDescription>
             </CardHeader>
-            
             <CardContent>
-              {allocations.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
-                    <CalendarIcon className="h-8 w-8 text-gray-400" />
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center p-3 bg-red-50 rounded-lg border border-red-200">
+                    <p className="text-sm text-red-600 font-medium">Total Shortage</p>
+                    <p className="text-2xl font-bold text-red-600 mt-2">
+                      {balanceData.filter(d => d.status === 'shortage')
+                        .reduce((sum, d) => sum + Math.abs(d.balance), 0).toFixed(1)} tons
+                    </p>
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-700 mb-2">
-                    No Active Allocations
-                  </h3>
-                  <p className="text-gray-500 mb-6 max-w-md mx-auto">
-                    Allocate farmers in the Farmers page first. Once allocated, they will appear here for order processing.
-                  </p>
-                  <div className="flex flex-col gap-3 max-w-sm mx-auto">
-                    <p className="text-sm text-gray-600">Steps:</p>
-                    <ol className="text-sm text-gray-500 text-left space-y-2">
-                      <li className="flex items-start gap-2">
-                        <span className="bg-blue-100 text-blue-600 rounded-full h-5 w-5 flex items-center justify-center text-xs mt-0.5">1</span>
-                        <span>Go to Farmers page</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="bg-blue-100 text-blue-600 rounded-full h-5 w-5 flex items-center justify-center text-xs mt-0.5">2</span>
-                        <span>Click "Allocate" on a farmer</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="bg-blue-100 text-blue-600 rounded-full h-5 w-5 flex items-center justify-center text-xs mt-0.5">3</span>
-                        <span>Allocated farmers appear here for orders</span>
-                      </li>
-                    </ol>
+                  <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <p className="text-sm text-blue-600 font-medium">Total Oversupply</p>
+                    <p className="text-2xl font-bold text-blue-600 mt-2">
+                      {balanceData.filter(d => d.status === 'oversupply')
+                        .reduce((sum, d) => sum + d.balance, 0).toFixed(1)} tons
+                    </p>
                   </div>
                 </div>
-              ) : (
-                <div className="space-y-6">
-                  {Object.entries(groupedAllocations).map(([date, dateAllocations]) => (
-                    <div key={date} className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-semibold">
-                          {formatDate(date)}
-                        </h3>
-                        <div className="flex items-center gap-3">
-                          <Badge variant="secondary">
-                            {dateAllocations.length} farmer{dateAllocations.length !== 1 ? 's' : ''}
-                          </Badge>
-                          <span className="text-sm text-muted-foreground">
-                            {dateAllocations.reduce((sum, a) => sum + a.quantity, 0).toFixed(1)} tons
-                          </span>
-                        </div>
+                
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <h4 className="font-medium text-gray-800 mb-2">Status Distribution</h4>
+                  <div className="space-y-2">
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="text-red-600">Shortage Days</span>
+                        <span>{shortageDays} days</span>
                       </div>
-                      
-                      <div className="rounded-lg border overflow-hidden">
-                        <Table>
-                          <TableHeader>
-                            <TableRow className="bg-muted/50">
-                              <TableHead>Farmer</TableHead>
-                              <TableHead>Contact</TableHead>
-                              <TableHead>Location</TableHead>
-                              <TableHead>Crop</TableHead>
-                              <TableHead>Allocated (tons)</TableHead>
-                              <TableHead>Status</TableHead>
-                              <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {dateAllocations.map((allocation) => (
-                              <TableRow key={allocation.id} className="hover:bg-muted/30">
-                                <TableCell className="font-medium">
-                                  <div>
-                                    <p>{allocation.farmerName}</p>
-                                    <p className="text-xs text-muted-foreground">
-                                      ID: {allocation.farmerId}
-                                    </p>
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  <div className="space-y-1">
-                                    {allocation.farmerPhone ? (
-                                      <div className="flex items-center gap-1 text-sm text-blue-600">
-                                        <Phone className="h-3 w-3" />
-                                        {allocation.farmerPhone}
-                                      </div>
-                                    ) : (
-                                      <p className="text-sm text-muted-foreground">No phone</p>
-                                    )}
-                                    {allocation.farmerEmail && (
-                                      <div className="flex items-center gap-1 text-xs text-green-600">
-                                        <Mail className="h-3 w-3" />
-                                        {allocation.farmerEmail}
-                                      </div>
-                                    )}
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  {allocation.farmerCounty}
-                                </TableCell>
-                                <TableCell>
-                                  {allocation.farmerCrop}
-                                </TableCell>
-                                <TableCell className="font-medium">
-                                  {allocation.quantity.toFixed(1)} tons
-                                  {allocation.orderQuantity && (
-                                    <p className="text-xs text-muted-foreground">
-                                      Ordered: {allocation.orderQuantity.toFixed(1)} tons
-                                    </p>
-                                  )}
-                                </TableCell>
-                                <TableCell>
-                                  {getStatusBadge(allocation.status)}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <div className="flex justify-end gap-2">
-                                    {allocation.status === 'scheduled' && (
-                                      <Button
-                                        size="sm"
-                                        onClick={() => openOrderDialog(allocation)}
-                                        className="h-8 px-3"
-                                      >
-                                        <Send className="h-4 w-4 mr-1" />
-                                        Send Order
-                                      </Button>
-                                    )}
-                                    
-                                    {allocation.status === 'in-progress' && (
-                                      <>
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => openOrderDialog(allocation)}
-                                          className="h-8 px-2 text-blue-600"
-                                        >
-                                          <Send className="h-3 w-3 mr-1" />
-                                          Resend
-                                        </Button>
-                                        <Button
-                                          size="sm"
-                                          onClick={() => handleCompleteDelivery(allocation.id)}
-                                          className="h-8 px-3"
-                                        >
-                                          <CheckCircle className="h-4 w-4 mr-1" />
-                                          Deliver
-                                        </Button>
-                                      </>
-                                    )}
-                                    
-                                    {allocation.status === 'completed' && (
-                                      <Badge variant="outline" className="text-green-600 bg-green-50">
-                                        Delivered
-                                      </Badge>
-                                    )}
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="bg-red-600 h-2 rounded-full" 
+                          style={{ width: `${(shortageDays / balanceData.length) * 100}%` }}
+                        />
                       </div>
                     </div>
-                  ))}
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="text-green-600">Demand Met</span>
+                        <span>{metDays} days</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="bg-green-600 h-2 rounded-full" 
+                          style={{ width: `${(metDays / balanceData.length) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              )}
+              </div>
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+
+          {/* Quick Actions */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Send className="h-5 w-5 text-green-600" />
+                Quick Actions
+              </CardTitle>
+              <CardDescription>Manage supply and orders</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <Button 
+                  className="w-full justify-start"
+                  onClick={() => setIsSupplementDialogOpen(true)}
+                >
+                  <ShoppingCart className="h-4 w-4 mr-2" />
+                  Request Supplement
+                </Button>
+                <Button 
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => window.location.href = '/farmers?action=allocate'}
+                >
+                  <Users className="h-4 w-4 mr-2" />
+                  Allocate More Farmers
+                </Button>
+                <Button 
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={fetchData}
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh Data
+                </Button>
+              </div>
+              
+              <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h4 className="font-medium text-blue-800 mb-2 flex items-center gap-2">
+                  <Info className="h-4 w-4" />
+                  How to Read the Balance
+                </h4>
+                <ul className="text-sm text-blue-700 space-y-1">
+                  <li>• <span className="font-medium">0 tons</span>: Demand fully met</li>
+                  <li>• <span className="font-medium">-5 tons</span>: 5 tons shortage</li>
+                  <li>• <span className="font-medium">+5 tons</span>: 5 tons oversupply</li>
+                  <li>• Click <ChevronDown className="h-3 w-3 inline" /> to see farmer details</li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       {/* Send Order Dialog */}
       <Dialog open={isOrderDialogOpen} onOpenChange={setIsOrderDialogOpen}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
+        <DialogContent className="max-w-md">
+          <DialogHeader>
             <DialogTitle>Send Order to Farmer</DialogTitle>
             <DialogDescription>
-              Send order details to {selectedAllocation?.farmerName}
+              Send procurement order to {selectedAllocation?.farmerName}
             </DialogDescription>
           </DialogHeader>
           
-          <div className="overflow-y-auto flex-1 p-6">
+          <div className="space-y-4 py-4">
             {selectedAllocation && (
-              <div className="space-y-6">
-                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <h4 className="font-medium text-blue-800 mb-3">Farmer Information</h4>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-blue-600 font-medium">Name:</span>
-                      <p className="font-medium">{selectedAllocation.farmerName}</p>
-                    </div>
-                    <div>
-                      <span className="text-blue-600 font-medium">Crop:</span>
-                      <p>{selectedAllocation.farmerCrop}</p>
-                    </div>
-                    <div>
-                      <span className="text-blue-600 font-medium">Email:</span>
-                      <p className="flex items-center gap-1">
-                        <Mail className="h-3 w-3" />
-                        {selectedAllocation.farmerEmail || 'Not provided'}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-blue-600 font-medium">Phone:</span>
-                      <p className="flex items-center gap-1">
-                        <Phone className="h-3 w-3" />
-                        {selectedAllocation.farmerPhone || 'Not provided'}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-blue-600 font-medium">Location:</span>
-                      <p>{selectedAllocation.farmerCounty}</p>
-                    </div>
-                    <div>
-                      <span className="text-blue-600 font-medium">Delivery Date:</span>
-                      <p>{formatDate(selectedAllocation.date)}</p>
-                    </div>
-                  </div>
+              <>
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <p className="font-medium text-blue-800">{selectedAllocation.farmerName}</p>
+                  <p className="text-sm text-blue-600">
+                    {selectedAllocation.farmerCounty} • {selectedAllocation.farmerCrop}
+                  </p>
                 </div>
-
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <Label htmlFor="orderQuantity">Order Quantity (tons) *</Label>
-                      <span className="text-sm text-muted-foreground">
-                        Allocated: {selectedAllocation.quantity.toFixed(1)} tons
-                      </span>
-                    </div>
-                    <Input
-                      id="orderQuantity"
-                      name="orderQuantity"
-                      type="number"
-                      value={orderForm.orderQuantity}
-                      onChange={handleOrderInputChange}
-                      placeholder="Enter order quantity"
-                      min="0.1"
-                      max={selectedAllocation.quantity}
-                      step="0.1"
-                      required
-                    />
-                    {parseFloat(orderForm.orderQuantity) > selectedAllocation.quantity && (
-                      <div className="flex items-center gap-1 text-sm text-red-600">
-                        <AlertCircle className="h-4 w-4" />
-                        Order quantity cannot exceed allocated quantity
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="orderNotes">Order Notes (Optional)</Label>
-                    <Input
-                      id="orderNotes"
-                      name="orderNotes"
-                      value={orderForm.orderNotes}
-                      onChange={handleOrderInputChange}
-                      placeholder="Special instructions or notes for the farmer..."
-                    />
-                  </div>
-
-                  <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                    <h4 className="font-medium text-green-800 mb-2 flex items-center gap-2">
-                      <Send className="h-4 w-4" />
-                      Order Will Be Sent To:
-                    </h4>
-                    <ul className="text-sm text-green-700 space-y-1">
-                      <li>✓ Email: {selectedAllocation.farmerEmail || 'Not available'}</li>
-                      <li>✓ SMS: {selectedAllocation.farmerPhone || 'Not available'}</li>
-                    </ul>
-                  </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="orderQuantity">Order Quantity (tons) *</Label>
+                  <Input
+                    id="orderQuantity"
+                    name="orderQuantity"
+                    type="number"
+                    value={orderForm.orderQuantity}
+                    onChange={(e) => setOrderForm(prev => ({ ...prev, orderQuantity: e.target.value }))}
+                    placeholder="Enter order quantity"
+                    min="0.1"
+                    step="0.1"
+                    required
+                  />
                 </div>
-              </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="orderNotes">Order Notes (Optional)</Label>
+                  <Textarea
+                    id="orderNotes"
+                    name="orderNotes"
+                    value={orderForm.orderNotes}
+                    onChange={(e) => setOrderForm(prev => ({ ...prev, orderNotes: e.target.value }))}
+                    placeholder="Special instructions for the farmer..."
+                    rows={3}
+                  />
+                </div>
+              </>
             )}
           </div>
-
-          <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
+          
+          <DialogFooter>
             <Button variant="outline" onClick={() => setIsOrderDialogOpen(false)}>
               Cancel
             </Button>
-            <Button 
-              onClick={handleSendOrder}
-              disabled={!orderForm.orderQuantity || parseFloat(orderForm.orderQuantity) > selectedAllocation?.quantity}
-              className="gap-2"
-            >
-              <Send className="h-4 w-4" />
+            <Button onClick={handleSendOrder} disabled={!orderForm.orderQuantity}>
+              <Send className="h-4 w-4 mr-2" />
               Send Order
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Supplement Request Dialog */}
+      <Dialog open={isSupplementDialogOpen} onOpenChange={setIsSupplementDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Request Supply Supplement</DialogTitle>
+            <DialogDescription>
+              Fill supply gaps from aggregators or marketplace
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+              <h4 className="font-medium text-red-800 mb-1">Current Supply Gap</h4>
+              <p className="text-sm text-red-600">
+                Total shortage: {balanceData.filter(d => d.status === 'shortage')
+                  .reduce((sum, d) => sum + Math.abs(d.balance), 0).toFixed(1)} tons
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="quantity">Quantity Required (tons) *</Label>
+              <Input
+                id="quantity"
+                name="quantity"
+                type="number"
+                value={supplementForm.quantity}
+                onChange={(e) => setSupplementForm(prev => ({ ...prev, quantity: e.target.value }))}
+                placeholder="Enter quantity"
+                min="0.1"
+                step="0.1"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="urgency">Urgency Level</Label>
+              <select
+                id="urgency"
+                name="urgency"
+                value={supplementForm.urgency}
+                onChange={(e) => setSupplementForm(prev => ({ ...prev, urgency: e.target.value }))}
+                className="w-full p-2.5 border border-gray-300 rounded-md bg-white text-sm"
+              >
+                <option value="low">Low - Within 2 weeks</option>
+                <option value="medium">Medium - Within 1 week</option>
+                <option value="high">High - Within 3 days</option>
+                <option value="critical">Critical - Within 24 hours</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="notes">Additional Notes</Label>
+              <Textarea
+                id="notes"
+                name="notes"
+                value={supplementForm.notes}
+                onChange={(e) => setSupplementForm(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Crop specifications, quality requirements..."
+                rows={3}
+              />
+            </div>
+
+            <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+              <h4 className="font-medium text-green-800 mb-2">Request Options</h4>
+              <div className="space-y-2 text-sm text-green-700">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span>Send to connected aggregators</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span>Post to FarmMall marketplace</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span>Email procurement team</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsSupplementDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleRequestSupplement} disabled={!supplementForm.quantity}>
+              <ShoppingCart className="h-4 w-4 mr-2" />
+              Request Supplement
             </Button>
           </DialogFooter>
         </DialogContent>
