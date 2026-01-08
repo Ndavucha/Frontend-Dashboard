@@ -1,11 +1,10 @@
 // src/api/services.js
 import axios from 'axios';
-import { API_CONFIG } from '../config/api.js';
 
 // Create axios instance with base configuration
 const api = axios.create({
-  baseURL: API_CONFIG.BASE_URL,
-  timeout: API_CONFIG.TIMEOUT,
+  baseURL: 'http://localhost:5000/api', // Adjust port if needed
+  timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -23,7 +22,7 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor for error handling
+// Response interceptor
 api.interceptors.response.use(
   (response) => response.data,
   (error) => {
@@ -39,97 +38,134 @@ api.interceptors.response.use(
       window.location.href = '/login';
     }
 
-    throw error;
+    // Return a more user-friendly error
+    return Promise.reject({
+      status: error.response?.status,
+      message: error.response?.data?.error || 'Network error occurred',
+      originalError: error
+    });
   }
 );
 
 // ====================== AUTH API ======================
 const authApi = {
-  login: (credentials) => api.post(API_CONFIG.ENDPOINTS.LOGIN, credentials),
-  register: (userData) => api.post(API_CONFIG.ENDPOINTS.REGISTER, userData),
-  verifyToken: () => api.get(API_CONFIG.ENDPOINTS.VERIFY_TOKEN),
-  logout: () => api.post(API_CONFIG.ENDPOINTS.LOGOUT),
+  login: (credentials) => api.post('/auth/login', credentials),
 };
 
 // ====================== ANALYTICS API ======================
 const analyticsApi = {
-  getOverviewStats: () => api.get(API_CONFIG.ENDPOINTS.ANALYTICS.OVERVIEW_STATS),
-  getSupplyDemandChart: (period = '30days') => 
-    api.get(API_CONFIG.ENDPOINTS.ANALYTICS.SUPPLY_DEMAND_CHART, { params: { period } }),
-  getVarietyDistribution: () => api.get(API_CONFIG.ENDPOINTS.ANALYTICS.VARIETY_DISTRIBUTION),
+  getOverview: () => api.get('/analytics/overview'),
+  getSupplyDemand: (period = '30days') => api.get('/analytics/supply-demand', { params: { period } }),
+  getVarietyDistribution: () => api.get('/analytics/variety-distribution'),
+  getCountyDistribution: () => api.get('/analytics/county-distribution'),
+  getDemographics: () => api.get('/analytics/demographics'),
+  getPerformanceTrends: () => api.get('/analytics/performance-trends'),
+  getRiskAlerts: () => api.get('/analytics/risk-alerts'),
+  getCostAnalysis: () => api.get('/analytics/cost-analysis'),
 };
 
 // ====================== FARMERS API ======================
 const farmersApi = {
-  getAll: (params = {}) => api.get(API_CONFIG.ENDPOINTS.FARMERS, { params }),
-  getById: (id) => api.get(API_CONFIG.ENDPOINTS.FARMER_DETAIL(id)),
-  create: (farmerData) => api.post(API_CONFIG.ENDPOINTS.FARMERS, farmerData),
-  update: (id, farmerData) => api.put(API_CONFIG.ENDPOINTS.FARMER_DETAIL(id), farmerData),
-  delete: (id) => api.delete(API_CONFIG.ENDPOINTS.FARMER_DETAIL(id)),
+  getAll: () => api.get('/farmers'),
+  getById: (id) => api.get(`/farmers/${id}`),
+  create: (farmerData) => api.post('/farmers', farmerData),
+  update: (id, farmerData) => api.put(`/farmers/${id}`, farmerData),
+  delete: (id) => api.delete(`/farmers/${id}`),
+  allocate: (id, allocationData) => api.post(`/farmers/${id}/allocate`, allocationData),
+  getOrders: (id) => api.get(`/farmers/${id}/orders`),
 };
 
 // ====================== CROPS API ======================
 const cropsApi = {
-  getAll: (params = {}) => api.get(API_CONFIG.ENDPOINTS.CROPS, { params }),
-  getByFarmer: (farmerId) => api.get(API_CONFIG.ENDPOINTS.CROPS, { params: { farmer_id: farmerId } }),
-  create: (cropData) => api.post(API_CONFIG.ENDPOINTS.CROPS, cropData),
-  update: (id, cropData) => api.put(`${API_CONFIG.ENDPOINTS.CROPS}/${id}`, cropData),
-  delete: (id) => api.delete(`${API_CONFIG.ENDPOINTS.CROPS}/${id}`),
+  getAll: () => api.get('/crops'),
+  create: (cropData) => api.post('/crops', cropData),
+  update: (id, cropData) => api.put(`/crops/${id}`, cropData),
+  delete: (id) => api.delete(`/crops/${id}`),
 };
 
 // ====================== SUPPLY PLANNING API ======================
 const supplyApi = {
-  // Allocations - CRITICAL for SupplyPlanning.jsx
-  getAllocations: (params = {}) => api.get(API_CONFIG.ENDPOINTS.SUPPLY.ALLOCATIONS, { params }),
-  getAllocationById: (id) => api.get(`${API_CONFIG.ENDPOINTS.SUPPLY.ALLOCATIONS}/${id}`),
-  createAllocation: (allocationData) => api.post(API_CONFIG.ENDPOINTS.SUPPLY.ALLOCATIONS, allocationData),
-  updateAllocation: (id, allocationData) => 
-    api.put(`${API_CONFIG.ENDPOINTS.SUPPLY.ALLOCATIONS}/${id}`, allocationData),
-  deleteAllocation: (id) => api.delete(`${API_CONFIG.ENDPOINTS.SUPPLY.ALLOCATIONS}/${id}`),
+  // Allocations
+  getAllocations: () => api.get('/supply/allocations'),
+  getAllocationById: (id) => api.get(`/supply/allocations/${id}`),
+  createAllocation: (allocationData) => api.post('/supply/allocations', allocationData),
+  updateAllocation: (id, allocationData) => api.put(`/supply/allocations/${id}`, allocationData),
+  deleteAllocation: (id) => api.delete(`/supply/allocations/${id}`),
   
-  // Demand Forecast - CRITICAL for SupplyPlanning.jsx
-  getDemandForecast: (days = 30) => 
-    api.get(API_CONFIG.ENDPOINTS.SUPPLY.DEMAND_FORECAST, { params: { days } }),
-  
-  // Delivery Management
-  getDeliveryTimeline: (days = 7) => 
-    api.get(API_CONFIG.ENDPOINTS.SUPPLY.DELIVERY_TIMELINE, { params: { days } }),
+  // Demand Forecast
+  getDemandForecast: (days = 30) => api.get('/procurement/demand-forecast', { params: { days } }),
   
   // Supply Analysis
-  getSupplyGapAnalysis: () => api.get(API_CONFIG.ENDPOINTS.SUPPLY.GAP_ANALYSIS),
+  getDemandAnalysis: () => api.get('/supply/demand-analysis'),
+  getUpcomingAllocations: (days = 7) => api.get('/supply/upcoming-allocations', { params: { days } }),
+  
+  // Plan
+  getPlan: () => api.get('/supply/plan'),
+  createPlan: (planData) => api.post('/supply/plan', planData),
+  updatePlan: (id, planData) => api.put(`/supply/plan/${id}`, planData),
+  
+  // Availability & Calendar
+  getFarmerAvailability: () => api.get('/supply/farmer-availability'),
+  getHarvestCalendar: () => api.get('/supply/harvest-calendar'),
 };
 
 // ====================== PROCUREMENT API ======================
 const procurementApi = {
   // Orders
-  getOrders: (params = {}) => api.get(API_CONFIG.ENDPOINTS.PROCUREMENT.ORDERS, { params }),
-  getOrderById: (id) => api.get(`${API_CONFIG.ENDPOINTS.PROCUREMENT.ORDERS}/${id}`),
-  createOrder: (orderData) => api.post(API_CONFIG.ENDPOINTS.PROCUREMENT.ORDERS, orderData),
-  updateOrder: (id, orderData) => api.put(`${API_CONFIG.ENDPOINTS.PROCUREMENT.ORDERS}/${id}`, orderData),
-  deleteOrder: (id) => api.delete(`${API_CONFIG.ENDPOINTS.PROCUREMENT.ORDERS}/${id}`),
-  
-  // Order Status Management
-  updateOrderStatus: (id, statusData) => 
-    api.patch(`${API_CONFIG.ENDPOINTS.PROCUREMENT.ORDERS}/${id}/status`, statusData),
-  receiveOrder: (id, receiptData) => 
-    api.post(`${API_CONFIG.ENDPOINTS.PROCUREMENT.ORDERS}/${id}/receive`, receiptData),
+  getOrders: () => api.get('/procurement/orders'),
+  getOrderById: (id) => api.get(`/procurement/orders/${id}`),
+  createOrder: (orderData) => api.post('/procurement/orders', orderData),
+  updateOrder: (id, orderData) => api.put(`/procurement/orders/${id}`, orderData),
+  deleteOrder: (id) => api.delete(`/procurement/orders/${id}`),
   
   // Supplement Requests
-  requestSupplement: (supplementData) => 
-    api.post(API_CONFIG.ENDPOINTS.PROCUREMENT.SUPPLEMENT_REQUEST, supplementData),
+  requestSupplement: (supplementData) => api.post('/procurement/request-supplement', supplementData),
+  getSupplementRequests: () => api.get('/procurement/supplement-requests'),
   
   // Demand & Forecasting
-  getDemandForecast: (days = 30) => 
-    api.get(API_CONFIG.ENDPOINTS.PROCUREMENT.DEMAND_FORECAST, { params: { days } }),
+  getDemandForecast: (days = 30) => api.get('/procurement/demand-forecast', { params: { days } }),
+  
+  // Reconciliation
+  getSupplyReconciliation: () => api.get('/procurement/supply-reconciliation'),
+  getHarvestReadiness: (days = 7) => api.get('/procurement/harvest-readiness', { params: { days } }),
 };
 
 // ====================== AGGREGATORS API ======================
 const aggregatorsApi = {
-  getAll: (params = {}) => api.get(API_CONFIG.ENDPOINTS.AGGREGATORS, { params }),
-  getById: (id) => api.get(`${API_CONFIG.ENDPOINTS.AGGREGATORS}/${id}`),
-  create: (aggregatorData) => api.post(API_CONFIG.ENDPOINTS.AGGREGATORS, aggregatorData),
-  update: (id, aggregatorData) => api.put(`${API_CONFIG.ENDPOINTS.AGGREGATORS}/${id}`, aggregatorData),
-  delete: (id) => api.delete(`${API_CONFIG.ENDPOINTS.AGGREGATORS}/${id}`),
+  getAll: () => api.get('/aggregators'),
+  getById: (id) => api.get(`/aggregators/${id}`),
+  create: (aggregatorData) => api.post('/aggregators', aggregatorData),
+  update: (id, aggregatorData) => api.put(`/aggregators/${id}`, aggregatorData),
+  delete: (id) => api.delete(`/aggregators/${id}`),
+  getStats: () => api.get('/aggregators/stats'), // Updated to match server endpoint
+};
+
+// ====================== CONTRACTS API ======================
+const contractsApi = {
+  getAll: () => api.get('/contracts'),
+  getById: (id) => api.get(`/contracts/${id}`),
+  create: (contractData) => api.post('/contracts', contractData),
+  update: (id, contractData) => api.put(`/contracts/${id}`, contractData),
+  delete: (id) => api.delete(`/contracts/${id}`),
+  updateFulfillment: (id, percentage) => api.patch(`/contracts/${id}/fulfillment`, { fulfillment_percentage: percentage }),
+  getStats: () => api.get('/contracts/stats'), // Updated to match server endpoint
+};
+
+// ====================== NOTIFICATIONS API ======================
+const notificationsApi = {
+  getAll: () => api.get('/notifications'),
+  getById: (id) => api.get(`/notifications/${id}`),
+  create: (notificationData) => api.post('/notifications', notificationData),
+  markAsRead: (id) => api.patch(`/notifications/${id}/read`),
+  markAllAsRead: () => api.patch('/notifications/read-all'),
+  delete: (id) => api.delete(`/notifications/${id}`),
+};
+
+// ====================== UTILITY API ======================
+const utilityApi = {
+  getHealth: () => api.get('/health'),
+  resetDatabase: () => api.post('/reset'),
+  seedDatabase: () => api.post('/seed'),
 };
 
 // ====================== MAIN API SERVICE ======================
@@ -141,6 +177,27 @@ export const apiService = {
   supply: supplyApi,
   procurement: procurementApi,
   aggregators: aggregatorsApi,
+  contracts: contractsApi,
+  notifications: notificationsApi,
+  utility: utilityApi,
+  
+  // Legacy/compatibility methods
+  aggregators: {
+    getAll: aggregatorsApi.getAll,
+    getStats: aggregatorsApi.getStats,
+    create: aggregatorsApi.create,
+    update: aggregatorsApi.update,
+    delete: aggregatorsApi.delete,
+  },
+  
+  contracts: {
+    getAll: contractsApi.getAll,
+    getStats: contractsApi.getStats,
+    create: contractsApi.create,
+    update: contractsApi.update,
+    delete: contractsApi.delete,
+    updateFulfillment: contractsApi.updateFulfillment,
+  },
 };
 
 // ====================== HELPER FUNCTIONS ======================
