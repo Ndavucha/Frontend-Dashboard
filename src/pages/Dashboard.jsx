@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { 
   Users, 
-  MapPin, 
   Package, 
   TrendingUp,
   PlusCircle,
@@ -51,10 +50,7 @@ export default function Dashboard() {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      console.log('📊 Fetching dashboard data...');
-      
       const overview = await apiService.analytics.getOverview();
-      console.log('📊 Dashboard data received:', overview);
       
       setStats({
         totalFarmers: overview.totalFarmers || 0,
@@ -77,7 +73,7 @@ export default function Dashboard() {
       setIsFreshSystem(overview.isFreshSystem || (overview.totalFarmers === 0 && overview.activeCrops === 0));
       
     } catch (err) {
-      console.error('❌ Error fetching dashboard:', err);
+      console.error('Error fetching dashboard:', err);
       toast.error('Unable to load dashboard data');
       setIsFreshSystem(true);
     } finally {
@@ -111,7 +107,6 @@ export default function Dashboard() {
         description="Let's set up your agricultural supply chain management"
       >
         <div className="max-w-4xl mx-auto">
-          {/* Welcome Hero */}
           <Card className="mb-8 border-green-200 bg-gradient-to-r from-green-50 to-emerald-50">
             <CardContent className="pt-8 pb-8">
               <div className="text-center">
@@ -144,7 +139,6 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* Setup Steps */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <Card>
               <CardHeader>
@@ -243,7 +237,6 @@ export default function Dashboard() {
             </Card>
           </div>
 
-          {/* Quick Stats Preview */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             {[
               { 
@@ -298,14 +291,12 @@ export default function Dashboard() {
     );
   }
 
-  // Normal dashboard when there's data
   return (
     <DashboardLayout 
       title="Dashboard" 
       description="Overview of your supply chain operations"
     >
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
@@ -331,7 +322,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Main Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { 
@@ -382,7 +372,6 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* Performance Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[
             { 
@@ -426,7 +415,6 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* Additional Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[
             { 
@@ -439,14 +427,14 @@ export default function Dashboard() {
             { 
               title: 'Total Acreage', 
               value: `${stats.totalAcreage || 0} acres`, 
-              icon: MapPin,
+              icon: Target,
               description: 'Total farm land',
               color: 'amber'
             },
             { 
               title: 'Allocated Quantity', 
               value: `${stats.totalAllocatedQty || 0} tons`, 
-              icon: Target,
+              icon: TrendingUp,
               description: 'Total supply planned',
               color: 'blue'
             },
@@ -470,7 +458,6 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* Quick Actions */}
         <Card>
           <CardHeader>
             <CardTitle>Quick Actions</CardTitle>
@@ -511,7 +498,6 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
