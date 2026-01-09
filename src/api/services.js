@@ -3,7 +3,7 @@ import axios from 'axios';
 
 // Create axios instance with base configuration
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api', // Adjust port if needed
+  baseURL: 'https://dashboard-azd9.onrender.com/api', // Adjust port if needed
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -222,3 +222,4 @@ export const uploadFile = async (endpoint, file, onProgress = null) => {
 
 // Export axios instance for custom requests
 export { api };
+
