@@ -9,6 +9,7 @@ import { Toaster } from 'sonner';
 import Aggregators from './pages/Aggregators';
 import SupplyPlanning from './pages/SupplyPlanning';
 import Contracts from './pages/Contracts';
+import FarmMall from './pages/Farmmall';
 import Onboarding from './pages/Onboarding';
 import { useDialogFix } from '@/hooks/useDialogFix';
 
@@ -22,6 +23,7 @@ function App() {
         <Route path="/farmers" element={<Farmers />} />
         <Route path="/SupplyPlanning" element={<SupplyPlanning />} />
         <Route path="/procurement" element={<Procurement />} />
+        <Route path="/FarmMall" element={<FarmMall />} />
         <Route path="/aggregators" element={<Aggregators />} />
         <Route path="/contracts" element={<Contracts />} />
         <Route path="/analytics" element={<Analytics />} />
