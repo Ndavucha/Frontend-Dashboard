@@ -1,6 +1,6 @@
 // src/pages/FarmMall.jsx
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom'; // Add this import
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -38,11 +38,11 @@ import {
   Leaf,
   DollarSign
 } from 'lucide-react';
-import { apiService } from '@/api/services'; // Import apiService
+import { apiService } from '@/api/services';
 import { toast } from 'sonner';
 
 export default function FarmMall() {
-  const navigate = useNavigate(); // Add navigation
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedVariety, setSelectedVariety] = useState('all');
   const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
@@ -405,137 +405,139 @@ export default function FarmMall() {
         </div>
       )}
 
-      {/* Order Dialog */}
+      {/* Order Dialog - Made scrollable */}
       <Dialog open={isOrderDialogOpen} onOpenChange={setIsOrderDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader className="sticky top-0 bg-white z-10">
             <DialogTitle>Create Procurement Order</DialogTitle>
             <DialogDescription>
               Order from {selectedFarmer?.name}
             </DialogDescription>
           </DialogHeader>
           
-          {selectedFarmer && (
-            <div className="space-y-4 py-4">
-              {/* Farmer Info */}
-              <div className="p-3 bg-blue-50 rounded-lg">
-                <div className="flex items-center gap-3 mb-2">
-                  <User className="h-5 w-5 text-blue-600" />
-                  <div>
-                    <h4 className="font-semibold">{selectedFarmer.name}</h4>
-                    <p className="text-sm text-gray-600">{selectedFarmer.county} County</p>
+          <div className="space-y-4 py-4">
+            {selectedFarmer && (
+              <>
+                {/* Farmer Info */}
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <div className="flex items-center gap-3 mb-2">
+                    <User className="h-5 w-5 text-blue-600" />
+                    <div>
+                      <h4 className="font-semibold">{selectedFarmer.name}</h4>
+                      <p className="text-sm text-gray-600">{selectedFarmer.county} County</p>
+                    </div>
+                  </div>
+                  <div className="text-sm">
+                    <p className="text-green-700 font-medium">{selectedFarmer.price}</p>
                   </div>
                 </div>
-                <div className="text-sm">
-                  <p className="text-green-700 font-medium">{selectedFarmer.price}</p>
-                </div>
-              </div>
 
-              {/* Order Form */}
-              <div className="space-y-3">
-                <div>
-                  <Label htmlFor="crop">Potato Variety</Label>
-                  <Select defaultValue={selectedFarmer.varieties[0]}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {selectedFarmer.varieties.map((variety) => (
-                        <SelectItem key={variety} value={variety}>
-                          {variety}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-3">
+                {/* Order Form */}
+                <div className="space-y-3">
                   <div>
-                    <Label htmlFor="quantity">Quantity (tons) *</Label>
+                    <Label htmlFor="crop">Potato Variety</Label>
+                    <Select defaultValue={selectedFarmer.varieties[0]}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {selectedFarmer.varieties.map((variety) => (
+                          <SelectItem key={variety} value={variety}>
+                            {variety}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="quantity">Quantity (tons) *</Label>
+                      <Input
+                        id="quantity"
+                        type="number"
+                        value={orderForm.quantity}
+                        onChange={(e) => setOrderForm(prev => ({ ...prev, quantity: e.target.value }))}
+                        placeholder="e.g., 10"
+                        min="0.1"
+                        step="0.1"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="price">Price per ton (KES)</Label>
+                      <Input
+                        id="price"
+                        type="number"
+                        value={orderForm.price}
+                        onChange={(e) => setOrderForm(prev => ({ ...prev, price: e.target.value }))}
+                        placeholder="e.g., 45000"
+                        min="0"
+                        step="1000"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="expectedDeliveryDate">Expected Delivery Date</Label>
                     <Input
-                      id="quantity"
-                      type="number"
-                      value={orderForm.quantity}
-                      onChange={(e) => setOrderForm(prev => ({ ...prev, quantity: e.target.value }))}
-                      placeholder="e.g., 10"
-                      min="0.1"
-                      step="0.1"
-                      required
+                      id="expectedDeliveryDate"
+                      type="date"
+                      value={orderForm.expectedDeliveryDate}
+                      onChange={(e) => setOrderForm(prev => ({ ...prev, expectedDeliveryDate: e.target.value }))}
                     />
                   </div>
                   
                   <div>
-                    <Label htmlFor="price">Price per ton (KES)</Label>
-                    <Input
-                      id="price"
-                      type="number"
-                      value={orderForm.price}
-                      onChange={(e) => setOrderForm(prev => ({ ...prev, price: e.target.value }))}
-                      placeholder="e.g., 45000"
-                      min="0"
-                      step="1000"
+                    <Label htmlFor="notes">Order Notes</Label>
+                    <Textarea
+                      id="notes"
+                      value={orderForm.notes}
+                      onChange={(e) => setOrderForm(prev => ({ ...prev, notes: e.target.value }))}
+                      placeholder="Special instructions or requirements..."
+                      rows={3}
                     />
                   </div>
-                </div>
-                
-                <div>
-                  <Label htmlFor="expectedDeliveryDate">Expected Delivery Date</Label>
-                  <Input
-                    id="expectedDeliveryDate"
-                    type="date"
-                    value={orderForm.expectedDeliveryDate}
-                    onChange={(e) => setOrderForm(prev => ({ ...prev, expectedDeliveryDate: e.target.value }))}
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="notes">Order Notes</Label>
-                  <Textarea
-                    id="notes"
-                    value={orderForm.notes}
-                    onChange={(e) => setOrderForm(prev => ({ ...prev, notes: e.target.value }))}
-                    placeholder="Special instructions or requirements..."
-                    rows={2}
-                  />
-                </div>
-                
-                {/* Order Summary */}
-                {orderForm.quantity && (
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <h4 className="font-medium mb-1">Order Summary</h4>
-                    <div className="text-sm space-y-1">
-                      <div className="flex justify-between">
-                        <span>Supplier:</span>
-                        <span className="font-medium">{selectedFarmer.name}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Quantity:</span>
-                        <span className="font-medium">{orderForm.quantity} tons</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Price:</span>
-                        <span className="font-medium">
-                          KES {parseFloat(orderForm.price || selectedFarmer.defaultPrice).toLocaleString()} per ton
-                        </span>
-                      </div>
-                      <div className="pt-2 border-t">
-                        <div className="flex justify-between font-bold">
-                          <span>Total:</span>
-                          <span>
-                            KES {orderForm.quantity && orderForm.price 
-                              ? (parseFloat(orderForm.quantity) * parseFloat(orderForm.price || selectedFarmer.defaultPrice)).toLocaleString()
-                              : '0'}
+                  
+                  {/* Order Summary */}
+                  {orderForm.quantity && (
+                    <div className="p-3 bg-gray-50 rounded-lg mb-4">
+                      <h4 className="font-medium mb-1">Order Summary</h4>
+                      <div className="text-sm space-y-1">
+                        <div className="flex justify-between">
+                          <span>Supplier:</span>
+                          <span className="font-medium">{selectedFarmer.name}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Quantity:</span>
+                          <span className="font-medium">{orderForm.quantity} tons</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Price:</span>
+                          <span className="font-medium">
+                            KES {parseFloat(orderForm.price || selectedFarmer.defaultPrice).toLocaleString()} per ton
                           </span>
+                        </div>
+                        <div className="pt-2 border-t">
+                          <div className="flex justify-between font-bold">
+                            <span>Total:</span>
+                            <span>
+                              KES {orderForm.quantity && orderForm.price 
+                                ? (parseFloat(orderForm.quantity) * parseFloat(orderForm.price || selectedFarmer.defaultPrice)).toLocaleString()
+                                : '0'}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+                  )}
+                </div>
+              </>
+            )}
+          </div>
           
-          <DialogFooter>
+          <DialogFooter className="sticky bottom-0 bg-white pt-4 border-t">
             <Button variant="outline" onClick={() => setIsOrderDialogOpen(false)}>
               Cancel
             </Button>
