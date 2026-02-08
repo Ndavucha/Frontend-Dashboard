@@ -22,6 +22,7 @@ const navigation = [
   { name: 'Farmers', href: '/farmers', icon: Users },
   { name: 'SupplyPlanning', href: '/SupplyPlanning', icon: ClipboardList },
   { name: 'Procurement', href: '/procurement', icon: Truck },
+  {name:'Farmmall' , href: '/farmmall', icon: CalendarRange },
   { name: 'Contracts', href: '/contracts', icon: FileText }, // Using FileText for Contracts
   { name: 'Aggregators', href: '/aggregators', icon: CalendarRange },
   { name: 'Analytics', href: '/analytics', icon: TrendingUp },
