@@ -130,6 +130,13 @@ const procurementApi = {
   getHarvestReadiness: (days = 7) => api.get('/procurement/harvest-readiness', { params: { days } }),
 };
 
+// ====================== FARM MALL API ======================
+const farmMallApi = {
+  getFarmers: () => api.get('/farmmall/farmers'),
+  getFarmerById: (id) => api.get(`/farmmall/farmers/${id}`),
+  createOrder: (orderData) => api.post('/farmmall/orders', orderData),
+};
+
 // ====================== AGGREGATORS API ======================
 const aggregatorsApi = {
   getAll: () => api.get('/aggregators'),
@@ -176,6 +183,7 @@ export const apiService = {
   crops: cropsApi,
   supply: supplyApi,
   procurement: procurementApi,
+  farmMall: farmMallApi,
   aggregators: aggregatorsApi,
   contracts: contractsApi,
   notifications: notificationsApi,
@@ -222,4 +230,5 @@ export const uploadFile = async (endpoint, file, onProgress = null) => {
 
 // Export axios instance for custom requests
 export { api };
+
 
