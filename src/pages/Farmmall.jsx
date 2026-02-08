@@ -1,10 +1,28 @@
 // src/pages/FarmMall.jsx
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom'; // Add this import
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Search,
   MapPin,
@@ -17,13 +35,24 @@ import {
   Package,
   ExternalLink,
   Calendar,
-  Leaf
+  Leaf,
+  DollarSign
 } from 'lucide-react';
+import { apiService } from '@/api/services'; // Import apiService
 import { toast } from 'sonner';
 
 export default function FarmMall() {
+  const navigate = useNavigate(); // Add navigation
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedVariety, setSelectedVariety] = useState('all');
+  const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
+  const [selectedFarmer, setSelectedFarmer] = useState(null);
+  const [orderForm, setOrderForm] = useState({
+    quantity: '',
+    price: '',
+    expectedDeliveryDate: new Date().toISOString().split('T')[0],
+    notes: ''
+  });
   
   // Potato varieties with maturity days
   const potatoVarieties = [
@@ -51,7 +80,8 @@ export default function FarmMall() {
       phone: '+254 712 345 678',
       rating: 4.8,
       verified: true,
-      price: 'KES 45,000 - 52,000 / ton'
+      price: 'KES 45,000 - 52,000 / ton',
+      defaultPrice: 48000
     },
     {
       id: 2,
@@ -61,7 +91,8 @@ export default function FarmMall() {
       phone: '+254 723 456 789',
       rating: 4.5,
       verified: true,
-      price: 'KES 48,000 - 55,000 / ton'
+      price: 'KES 48,000 - 55,000 / ton',
+      defaultPrice: 51000
     },
     {
       id: 3,
@@ -71,7 +102,8 @@ export default function FarmMall() {
       phone: '+254 734 567 890',
       rating: 4.7,
       verified: true,
-      price: 'KES 42,000 - 48,000 / ton'
+      price: 'KES 42,000 - 48,000 / ton',
+      defaultPrice: 45000
     },
     {
       id: 4,
@@ -81,7 +113,8 @@ export default function FarmMall() {
       phone: '+254 745 678 901',
       rating: 4.3,
       verified: false,
-      price: 'KES 50,000 - 58,000 / ton'
+      price: 'KES 50,000 - 58,000 / ton',
+      defaultPrice: 54000
     },
     {
       id: 5,
@@ -91,7 +124,8 @@ export default function FarmMall() {
       phone: '+254 756 789 012',
       rating: 4.9,
       verified: true,
-      price: 'KES 55,000 - 65,000 / ton'
+      price: 'KES 55,000 - 65,000 / ton',
+      defaultPrice: 60000
     },
     {
       id: 6,
@@ -101,7 +135,8 @@ export default function FarmMall() {
       phone: '+254 767 890 123',
       rating: 4.6,
       verified: true,
-      price: 'KES 40,000 - 46,000 / ton'
+      price: 'KES 40,000 - 46,000 / ton',
+      defaultPrice: 43000
     }
   ];
 
@@ -118,11 +153,65 @@ export default function FarmMall() {
     return matchesSearch && matchesVariety;
   });
 
-  // Handle selecting a farmer
+  // Handle selecting a farmer - OPEN ORDER DIALOG
   const handleSelectFarmer = (farmer) => {
-    toast.success(`Selected ${farmer.name} for procurement`);
-    // In real app, this would navigate to procurement page
-    console.log('Selected farmer:', farmer);
+    setSelectedFarmer(farmer);
+    setOrderForm({
+      quantity: '',
+      price: farmer.defaultPrice.toString(),
+      expectedDeliveryDate: new Date().toISOString().split('T')[0],
+      notes: ''
+    });
+    setIsOrderDialogOpen(true);
+  };
+
+  // Handle creating order
+  const handleCreateOrder = async () => {
+    try {
+      if (!selectedFarmer) return;
+      
+      // Extract first variety
+      const selectedVariety = selectedFarmer.varieties[0];
+      
+      // Create order data
+      const orderData = {
+        supplierName: selectedFarmer.name,
+        supplierType: 'farmmall',
+        supplierContact: selectedFarmer.phone,
+        crop: selectedVariety,
+        quantity: parseFloat(orderForm.quantity),
+        price: parseFloat(orderForm.price),
+        status: 'pending',
+        source: 'farmmall',
+        expectedDeliveryDate: orderForm.expectedDeliveryDate,
+        notes: orderForm.notes,
+        farmerDetails: {
+          id: selectedFarmer.id,
+          county: selectedFarmer.county,
+          rating: selectedFarmer.rating
+        }
+      };
+
+      // Create order through API
+      await apiService.farmMall.createOrder(orderData);
+      
+      toast.success(`Order created with ${selectedFarmer.name}!`);
+      setIsOrderDialogOpen(false);
+      setSelectedFarmer(null);
+      setOrderForm({
+        quantity: '',
+        price: '',
+        expectedDeliveryDate: new Date().toISOString().split('T')[0],
+        notes: ''
+      });
+      
+      // Optionally navigate to procurement page
+      // navigate('/procurement');
+      
+    } catch (error) {
+      console.error('Error creating order:', error);
+      toast.error('Failed to create order');
+    }
   };
 
   return (
@@ -140,14 +229,24 @@ export default function FarmMall() {
                 Browse potato farmers and varieties from <a href="https://farmmall.co.ke" target="_blank" rel="noopener noreferrer" className="text-green-600 hover:underline">farmmall.co.ke</a>
               </p>
             </div>
-            <Button 
-              variant="outline"
-              onClick={() => window.open('https://farmmall.co.ke', '_blank')}
-              className="gap-2"
-            >
-              <ExternalLink className="h-4 w-4" />
-              Visit FarmMall
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline"
+                onClick={() => navigate('/procurement')}
+                className="gap-2"
+              >
+                <ShoppingCart className="h-4 w-4" />
+                View Procurement
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => window.open('https://farmmall.co.ke', '_blank')}
+                className="gap-2"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Visit FarmMall
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -297,7 +396,7 @@ export default function FarmMall() {
                     onClick={() => handleSelectFarmer(farmer)}
                   >
                     <ShoppingCart className="h-4 w-4 mr-2" />
-                    Select Farmer
+                    Create Order
                   </Button>
                 </div>
               </CardContent>
@@ -305,6 +404,151 @@ export default function FarmMall() {
           ))}
         </div>
       )}
+
+      {/* Order Dialog */}
+      <Dialog open={isOrderDialogOpen} onOpenChange={setIsOrderDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create Procurement Order</DialogTitle>
+            <DialogDescription>
+              Order from {selectedFarmer?.name}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedFarmer && (
+            <div className="space-y-4 py-4">
+              {/* Farmer Info */}
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <div className="flex items-center gap-3 mb-2">
+                  <User className="h-5 w-5 text-blue-600" />
+                  <div>
+                    <h4 className="font-semibold">{selectedFarmer.name}</h4>
+                    <p className="text-sm text-gray-600">{selectedFarmer.county} County</p>
+                  </div>
+                </div>
+                <div className="text-sm">
+                  <p className="text-green-700 font-medium">{selectedFarmer.price}</p>
+                </div>
+              </div>
+
+              {/* Order Form */}
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="crop">Potato Variety</Label>
+                  <Select defaultValue={selectedFarmer.varieties[0]}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {selectedFarmer.varieties.map((variety) => (
+                        <SelectItem key={variety} value={variety}>
+                          {variety}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="quantity">Quantity (tons) *</Label>
+                    <Input
+                      id="quantity"
+                      type="number"
+                      value={orderForm.quantity}
+                      onChange={(e) => setOrderForm(prev => ({ ...prev, quantity: e.target.value }))}
+                      placeholder="e.g., 10"
+                      min="0.1"
+                      step="0.1"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="price">Price per ton (KES)</Label>
+                    <Input
+                      id="price"
+                      type="number"
+                      value={orderForm.price}
+                      onChange={(e) => setOrderForm(prev => ({ ...prev, price: e.target.value }))}
+                      placeholder="e.g., 45000"
+                      min="0"
+                      step="1000"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <Label htmlFor="expectedDeliveryDate">Expected Delivery Date</Label>
+                  <Input
+                    id="expectedDeliveryDate"
+                    type="date"
+                    value={orderForm.expectedDeliveryDate}
+                    onChange={(e) => setOrderForm(prev => ({ ...prev, expectedDeliveryDate: e.target.value }))}
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="notes">Order Notes</Label>
+                  <Textarea
+                    id="notes"
+                    value={orderForm.notes}
+                    onChange={(e) => setOrderForm(prev => ({ ...prev, notes: e.target.value }))}
+                    placeholder="Special instructions or requirements..."
+                    rows={2}
+                  />
+                </div>
+                
+                {/* Order Summary */}
+                {orderForm.quantity && (
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <h4 className="font-medium mb-1">Order Summary</h4>
+                    <div className="text-sm space-y-1">
+                      <div className="flex justify-between">
+                        <span>Supplier:</span>
+                        <span className="font-medium">{selectedFarmer.name}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Quantity:</span>
+                        <span className="font-medium">{orderForm.quantity} tons</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Price:</span>
+                        <span className="font-medium">
+                          KES {parseFloat(orderForm.price || selectedFarmer.defaultPrice).toLocaleString()} per ton
+                        </span>
+                      </div>
+                      <div className="pt-2 border-t">
+                        <div className="flex justify-between font-bold">
+                          <span>Total:</span>
+                          <span>
+                            KES {orderForm.quantity && orderForm.price 
+                              ? (parseFloat(orderForm.quantity) * parseFloat(orderForm.price || selectedFarmer.defaultPrice)).toLocaleString()
+                              : '0'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsOrderDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCreateOrder} 
+              disabled={!orderForm.quantity}
+            >
+              <ShoppingCart className="h-4 w-4 mr-2" />
+              Create Order
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Potato Varieties Info Card */}
       <Card className="mt-8">
