@@ -1,8 +1,8 @@
 // src/config/api.js
 
 // Get environment from import.meta.env or use defaults
-const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || 'https://dashboard-azd9.onrender.com';
-const WS_URL = import.meta.env?.VITE_WS_URL || 'wss://dashboard-azd9.onrender.com';
+const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || 'https://dashboard-9kr2.onrender.com';
+const WS_URL = import.meta.env?.VITE_WS_URL || 'wss://dashboard-9kr2.onrender.com';
 
 export const API_CONFIG = {
   BASE_URL: API_BASE_URL,
@@ -221,4 +221,5 @@ export const API_CONFIG = {
     RESTORE: '/api/system/restore'
   }
 };
+
 
