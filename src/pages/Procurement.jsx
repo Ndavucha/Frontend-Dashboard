@@ -32,7 +32,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { 
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
+import {
+  Search,
+  Star,
+  MapPin,
+  Phone,
+  Mail,
+  CheckCircle,
+  XCircle,
   Package,
   PackageCheck,
   PackageX,
@@ -40,7 +55,6 @@ import {
   TrendingUp,
   TrendingDown,
   AlertCircle,
-  CheckCircle,
   Clock,
   RefreshCw,
   ExternalLink,
@@ -52,14 +66,15 @@ import {
   Filter,
   Download,
   Send,
-  Mail,
-  Phone,
-  MapPin,
   Sprout,
   DollarSign,
   FileText,
   Eye,
-  CheckSquare
+  CheckSquare,
+  User,
+  Globe,
+  ShoppingBag,
+  Leaf
 } from 'lucide-react';
 import { apiService } from '@/api/services';
 import { toast } from 'sonner';
@@ -69,13 +84,23 @@ export default function Procurement() {
   const [allocations, setAllocations] = useState([]);
   const [orders, setOrders] = useState([]);
   const [aggregators, setAggregators] = useState([]);
+  const [farmMallFarmers, setFarmMallFarmers] = useState([]);
+  const [filteredFarmers, setFilteredFarmers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isSupplementDialogOpen, setIsSupplementDialogOpen] = useState(false);
   const [isAggregatorDialogOpen, setIsAggregatorDialogOpen] = useState(false);
   const [isReceiveDialogOpen, setIsReceiveDialogOpen] = useState(false);
   const [isManualOrderDialogOpen, setIsManualOrderDialogOpen] = useState(false);
+  const [isFarmMallOrderDialogOpen, setIsFarmMallOrderDialogOpen] = useState(false);
   const [selectedAggregator, setSelectedAggregator] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [selectedFarmer, setSelectedFarmer] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCrop, setSelectedCrop] = useState('all');
+  const [selectedCounty, setSelectedCounty] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [farmersPerPage] = useState(6);
+  
   const [supplementForm, setSupplementForm] = useState({
     quantity: '',
     urgency: 'medium',
@@ -100,6 +125,178 @@ export default function Procurement() {
     expectedDeliveryDate: new Date().toISOString().split('T')[0],
     notes: ''
   });
+  
+  const [farmMallOrderForm, setFarmMallOrderForm] = useState({
+    crop: '',
+    quantity: '',
+    price: '',
+    expectedDeliveryDate: new Date().toISOString().split('T')[0],
+    notes: ''
+  });
+
+  // Dummy FarmMall farmers data (simulating API response)
+  const dummyFarmMallFarmers = [
+    {
+      id: 'fm001',
+      name: 'Green Valley Farmers Co-op',
+      type: 'Cooperative',
+      county: 'Nakuru',
+      crops: ['Maize', 'Wheat', 'Potatoes'],
+      rating: 4.8,
+      totalSales: 1250,
+      priceRange: 'KES 45,000 - 52,000 per ton',
+      availability: 'High',
+      deliveryRadius: 'Countrywide',
+      contact: '+254 712 345 678',
+      verified: true,
+      featured: true,
+      image: 'https://via.placeholder.com/100'
+    },
+    {
+      id: 'fm002',
+      name: 'John Kamau',
+      type: 'Individual Farmer',
+      county: 'Meru',
+      crops: ['Coffee', 'Avocado', 'Bananas'],
+      rating: 4.5,
+      totalSales: 320,
+      priceRange: 'KES 80,000 - 95,000 per ton',
+      availability: 'Medium',
+      deliveryRadius: 'Central Region',
+      contact: '+254 723 456 789',
+      verified: true,
+      featured: false,
+      image: 'https://via.placeholder.com/100'
+    },
+    {
+      id: 'fm003',
+      name: 'Eldoret Grain Traders',
+      type: 'Aggregator',
+      county: 'Uasin Gishu',
+      crops: ['Maize', 'Barley', 'Sorghum'],
+      rating: 4.7,
+      totalSales: 2850,
+      priceRange: 'KES 42,000 - 48,000 per ton',
+      availability: 'High',
+      deliveryRadius: 'Countrywide',
+      contact: '+254 734 567 890',
+      verified: true,
+      featured: true,
+      image: 'https://via.placeholder.com/100'
+    },
+    {
+      id: 'fm004',
+      name: 'Mama Shamba Fresh Produce',
+      type: 'Smallholder Group',
+      county: 'Kiambu',
+      crops: ['Tomatoes', 'Onions', 'Cabbage'],
+      rating: 4.3,
+      totalSales: 540,
+      priceRange: 'KES 35,000 - 42,000 per ton',
+      availability: 'Medium',
+      deliveryRadius: 'Nairobi & Central',
+      contact: '+254 745 678 901',
+      verified: false,
+      featured: false,
+      image: 'https://via.placeholder.com/100'
+    },
+    {
+      id: 'fm005',
+      name: 'Rift Valley Horticulture',
+      type: 'Commercial Farm',
+      county: 'Naivasha',
+      crops: ['Flowers', 'Vegetables', 'Herbs'],
+      rating: 4.9,
+      totalSales: 1820,
+      priceRange: 'KES 65,000 - 85,000 per ton',
+      availability: 'Low',
+      deliveryRadius: 'International',
+      contact: '+254 756 789 012',
+      verified: true,
+      featured: true,
+      image: 'https://via.placeholder.com/100'
+    },
+    {
+      id: 'fm006',
+      name: 'Coastal Farmers Alliance',
+      type: 'Cooperative',
+      county: 'Mombasa',
+      crops: ['Coconuts', 'Cashews', 'Mangoes'],
+      rating: 4.2,
+      totalSales: 890,
+      priceRange: 'KES 55,000 - 70,000 per ton',
+      availability: 'High',
+      deliveryRadius: 'Coastal Region',
+      contact: '+254 767 890 123',
+      verified: true,
+      featured: false,
+      image: 'https://via.placeholder.com/100'
+    },
+    {
+      id: 'fm007',
+      name: 'Peter Omondi',
+      type: 'Individual Farmer',
+      county: 'Kisumu',
+      crops: ['Rice', 'Fish', 'Vegetables'],
+      rating: 4.4,
+      totalSales: 210,
+      priceRange: 'KES 38,000 - 45,000 per ton',
+      availability: 'High',
+      deliveryRadius: 'Lake Region',
+      contact: '+254 778 901 234',
+      verified: false,
+      featured: false,
+      image: 'https://via.placeholder.com/100'
+    },
+    {
+      id: 'fm008',
+      name: 'Mount Kenya Tea Growers',
+      type: 'Cooperative',
+      county: 'Nyeri',
+      crops: ['Tea', 'Coffee', 'Dairy'],
+      rating: 4.6,
+      totalSales: 1560,
+      priceRange: 'KES 75,000 - 90,000 per ton',
+      availability: 'Medium',
+      deliveryRadius: 'Countrywide',
+      contact: '+254 789 012 345',
+      verified: true,
+      featured: true,
+      image: 'https://via.placeholder.com/100'
+    },
+    {
+      id: 'fm009',
+      name: 'Maasai Mara Livestock',
+      type: 'Group Ranch',
+      county: 'Narok',
+      crops: ['Livestock', 'Maize', 'Beans'],
+      rating: 4.1,
+      totalSales: 670,
+      priceRange: 'KES 50,000 - 60,000 per ton',
+      availability: 'Medium',
+      deliveryRadius: 'Rift Valley',
+      contact: '+254 790 123 456',
+      verified: true,
+      featured: false,
+      image: 'https://via.placeholder.com/100'
+    },
+    {
+      id: 'fm010',
+      name: 'Western Kenya Cereals',
+      type: 'Aggregator',
+      county: 'Kakamega',
+      crops: ['Maize', 'Beans', 'Sorghum'],
+      rating: 4.7,
+      totalSales: 1980,
+      priceRange: 'KES 40,000 - 46,000 per ton',
+      availability: 'High',
+      deliveryRadius: 'Western Region',
+      contact: '+254 701 234 567',
+      verified: true,
+      featured: true,
+      image: 'https://via.placeholder.com/100'
+    }
+  ];
 
   // Fetch data
   const fetchData = async () => {
@@ -116,6 +313,10 @@ export default function Procurement() {
       setOrders(Array.isArray(ordersResponse) ? ordersResponse : []);
       setAggregators(Array.isArray(aggregatorsResponse) ? aggregatorsResponse : []);
       
+      // Set dummy FarmMall farmers
+      setFarmMallFarmers(dummyFarmMallFarmers);
+      setFilteredFarmers(dummyFarmMallFarmers);
+      
     } catch (error) {
       console.error('Error fetching procurement data:', error);
       toast.error('Failed to load procurement data');
@@ -127,6 +328,46 @@ export default function Procurement() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Filter farmers based on search and filters
+  useEffect(() => {
+    let filtered = farmMallFarmers;
+
+    if (searchQuery) {
+      filtered = filtered.filter(farmer =>
+        farmer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        farmer.crops.some(crop => crop.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        farmer.county.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    if (selectedCrop !== 'all') {
+      filtered = filtered.filter(farmer =>
+        farmer.crops.some(crop => crop.toLowerCase() === selectedCrop.toLowerCase())
+      );
+    }
+
+    if (selectedCounty !== 'all') {
+      filtered = filtered.filter(farmer =>
+        farmer.county.toLowerCase() === selectedCounty.toLowerCase()
+      );
+    }
+
+    setFilteredFarmers(filtered);
+    setCurrentPage(1); // Reset to first page when filters change
+  }, [searchQuery, selectedCrop, selectedCounty, farmMallFarmers]);
+
+  // Get unique crops and counties for filters
+  const uniqueCrops = Array.from(new Set(farmMallFarmers.flatMap(f => f.crops)));
+  const uniqueCounties = Array.from(new Set(farmMallFarmers.map(f => f.county)));
+
+  // Pagination logic
+  const indexOfLastFarmer = currentPage * farmersPerPage;
+  const indexOfFirstFarmer = indexOfLastFarmer - farmersPerPage;
+  const currentFarmers = filteredFarmers.slice(indexOfFirstFarmer, indexOfLastFarmer);
+  const totalPages = Math.ceil(filteredFarmers.length / farmersPerPage);
+
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   // Calculate metrics
   const calculateMetrics = () => {
@@ -287,6 +528,76 @@ export default function Procurement() {
     }
   };
 
+  // Create FarmMall order
+  const handleCreateFarmMallOrder = async () => {
+    try {
+      if (!selectedFarmer) return;
+      
+      const orderData = {
+        supplierName: selectedFarmer.name,
+        supplierType: selectedFarmer.type.toLowerCase().includes('aggregator') ? 'aggregator' : 'farmmall',
+        supplierContact: selectedFarmer.contact,
+        crop: farmMallOrderForm.crop || selectedFarmer.crops[0],
+        quantity: parseFloat(farmMallOrderForm.quantity),
+        price: parseFloat(farmMallOrderForm.price) || 0,
+        status: 'pending',
+        source: 'farmmall',
+        expectedDeliveryDate: farmMallOrderForm.expectedDeliveryDate,
+        notes: farmMallOrderForm.notes,
+        farmerDetails: {
+          id: selectedFarmer.id,
+          county: selectedFarmer.county,
+          rating: selectedFarmer.rating,
+          deliveryRadius: selectedFarmer.deliveryRadius
+        },
+        createdAt: new Date().toISOString()
+      };
+
+      await apiService.procurement.createOrder(orderData);
+      
+      toast.success(`Order created with ${selectedFarmer.name}!`);
+      setIsFarmMallOrderDialogOpen(false);
+      setSelectedFarmer(null);
+      setFarmMallOrderForm({
+        crop: '',
+        quantity: '',
+        price: '',
+        expectedDeliveryDate: new Date().toISOString().split('T')[0],
+        notes: ''
+      });
+      
+      fetchData();
+      
+    } catch (error) {
+      console.error('Error creating FarmMall order:', error);
+      toast.error('Failed to create order');
+    }
+  };
+
+  // Handle FarmMall order dialog opening
+  const openFarmMallOrderDialog = (farmer) => {
+    setSelectedFarmer(farmer);
+    const defaultCrop = farmer.crops[0];
+    setFarmMallOrderForm({
+      crop: defaultCrop,
+      quantity: '',
+      price: getCropPrice(farmer, defaultCrop),
+      expectedDeliveryDate: new Date().toISOString().split('T')[0],
+      notes: ''
+    });
+    setIsFarmMallOrderDialogOpen(true);
+  };
+
+  // Helper function to get crop price
+  const getCropPrice = (farmer, crop) => {
+    // Extract price from price range string (simplified)
+    const priceMatch = farmer.priceRange.match(/KES (\d+,\d+)/);
+    if (priceMatch) {
+      return priceMatch[1].replace(',', '');
+    }
+    return '45000'; // Default price
+  };
+
   // Get status badge
   const getStatusBadge = (status) => {
     switch (status) {
@@ -333,6 +644,26 @@ export default function Procurement() {
     }
   };
 
+  // Get availability badge
+  const getAvailabilityBadge = (availability) => {
+    switch (availability.toLowerCase()) {
+      case 'high':
+        return <Badge variant="success" className="gap-1">
+          High
+        </Badge>;
+      case 'medium':
+        return <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 gap-1">
+          Medium
+        </Badge>;
+      case 'low':
+        return <Badge variant="destructive" className="gap-1">
+          Low
+        </Badge>;
+      default:
+        return <Badge variant="outline">{availability}</Badge>;
+    }
+  };
+
   // Format date
   const formatDate = (dateString) => {
     if (!dateString) return 'No date';
@@ -341,6 +672,21 @@ export default function Procurement() {
       day: 'numeric',
       year: 'numeric'
     });
+  };
+
+  // Render star rating
+  const renderRating = (rating) => {
+    return (
+      <div className="flex items-center">
+        {[...Array(5)].map((_, i) => (
+          <Star
+            key={i}
+            className={`h-3 w-3 ${i < Math.floor(rating) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
+          />
+        ))}
+        <span className="ml-1 text-xs font-medium">{rating}</span>
+      </div>
+    );
   };
 
   const metrics = calculateMetrics();
@@ -375,6 +721,10 @@ export default function Procurement() {
           <TabsTrigger value="orders" className="gap-2">
             <Package className="h-4 w-4" />
             Orders
+          </TabsTrigger>
+          <TabsTrigger value="farmmall" className="gap-2">
+            <ShoppingBag className="h-4 w-4" />
+            FarmMall
           </TabsTrigger>
           <TabsTrigger value="supplement" className="gap-2">
             <ShoppingCart className="h-4 w-4" />
@@ -461,10 +811,10 @@ export default function Procurement() {
             <Button 
               variant="outline"
               className="w-full"
-              onClick={() => setActiveTab('orders')}
+              onClick={() => setActiveTab('farmmall')}
             >
-              <Eye className="h-4 w-4 mr-2" />
-              View All Orders
+              <ShoppingBag className="h-4 w-4 mr-2" />
+              Browse FarmMall
             </Button>
             
             <Button 
@@ -518,6 +868,11 @@ export default function Procurement() {
                               <p>{order.supplierName || order.farmerName}</p>
                               {order.source === 'manual' && (
                                 <Badge variant="outline" className="text-xs">Manual</Badge>
+                              )}
+                              {order.source === 'farmmall' && (
+                                <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                  FarmMall
+                                </Badge>
                               )}
                             </div>
                           </TableCell>
@@ -652,7 +1007,8 @@ export default function Procurement() {
                             <div>
                               <p>{order.supplierName || order.farmerName}</p>
                               <p className="text-xs text-muted-foreground">
-                                {order.source === 'manual' ? 'External' : 'Farmer'}
+                                {order.source === 'manual' ? 'External' : 
+                                 order.source === 'farmmall' ? 'FarmMall' : 'Farmer'}
                               </p>
                             </div>
                           </TableCell>
@@ -709,6 +1065,263 @@ export default function Procurement() {
                     </TableBody>
                   </Table>
                 </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* FarmMall Tab */}
+        <TabsContent value="farmmall" className="animate-fade-in space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <ShoppingBag className="h-5 w-5 text-primary" />
+                    FarmMall Marketplace
+                  </CardTitle>
+                  <CardDescription>
+                    Browse farmers and create orders from the FarmMall marketplace
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => window.open('https://farmmall.co.ke', '_blank')}
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Visit FarmMall
+                </Button>
+              </div>
+            </CardHeader>
+            
+            <CardContent>
+              {/* Search and Filters */}
+              <div className="mb-6 space-y-4">
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="flex-1">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                      <Input
+                        placeholder="Search farmers, crops, counties..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Select value={selectedCrop} onValueChange={setSelectedCrop}>
+                      <SelectTrigger className="w-[140px]">
+                        <SelectValue placeholder="All Crops" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Crops</SelectItem>
+                        {uniqueCrops.map(crop => (
+                          <SelectItem key={crop} value={crop.toLowerCase()}>
+                            {crop}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    
+                    <Select value={selectedCounty} onValueChange={setSelectedCounty}>
+                      <SelectTrigger className="w-[140px]">
+                        <SelectValue placeholder="All Counties" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Counties</SelectItem>
+                        {uniqueCounties.map(county => (
+                          <SelectItem key={county} value={county.toLowerCase()}>
+                            {county}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                <div className="flex flex-wrap gap-2">
+                  <Badge 
+                    variant={selectedCrop === 'all' ? 'default' : 'outline'}
+                    className="cursor-pointer"
+                    onClick={() => setSelectedCrop('all')}
+                  >
+                    All Crops
+                  </Badge>
+                  {uniqueCrops.slice(0, 8).map(crop => (
+                    <Badge
+                      key={crop}
+                      variant={selectedCrop === crop.toLowerCase() ? 'default' : 'outline'}
+                      className="cursor-pointer"
+                      onClick={() => setSelectedCrop(crop.toLowerCase())}
+                    >
+                      {crop}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Results */}
+              <div className="mb-4 flex justify-between items-center">
+                <p className="text-sm text-muted-foreground">
+                  Showing {filteredFarmers.length} farmers
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setSelectedCrop('all');
+                      setSelectedCounty('all');
+                    }}
+                  >
+                    Clear Filters
+                  </Button>
+                </div>
+              </div>
+              
+              {/* Farmers Grid */}
+              {filteredFarmers.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
+                    <ShoppingBag className="h-8 w-8 text-gray-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-700 mb-2">
+                    No Farmers Found
+                  </h3>
+                  <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                    Try adjusting your search criteria or clear filters to see all available farmers.
+                  </p>
+                  <Button onClick={() => {
+                    setSearchQuery('');
+                    setSelectedCrop('all');
+                    setSelectedCounty('all');
+                  }}>
+                    Clear All Filters
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-6">
+                    {currentFarmers.map(farmer => (
+                      <Card key={farmer.id} className={`overflow-hidden hover:shadow-lg transition-shadow ${farmer.featured ? 'border-primary' : ''}`}>
+                        {farmer.featured && (
+                          <div className="bg-primary text-primary-foreground text-xs font-medium px-3 py-1 text-center">
+                            ⭐ Featured Supplier
+                          </div>
+                        )}
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
+                                <User className="h-6 w-6 text-gray-400" />
+                              </div>
+                              <div>
+                                <h3 className="font-semibold">{farmer.name}</h3>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="outline" className="text-xs">
+                                    {farmer.type}
+                                  </Badge>
+                                  {farmer.verified && (
+                                    <Badge variant="success" className="gap-1 text-xs">
+                                      <CheckCircle className="h-3 w-3" />
+                                      Verified
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            {renderRating(farmer.rating)}
+                          </div>
+                          
+                          <div className="space-y-3">
+                            <div className="flex items-center text-sm">
+                              <MapPin className="h-4 w-4 mr-2 text-gray-400" />
+                              {farmer.county}
+                              <span className="mx-2">•</span>
+                              <Globe className="h-4 w-4 mr-2 text-gray-400" />
+                              {farmer.deliveryRadius}
+                            </div>
+                            
+                            <div>
+                              <p className="text-sm font-medium mb-1">Available Crops:</p>
+                              <div className="flex flex-wrap gap-1">
+                                {farmer.crops.map((crop, index) => (
+                                  <Badge key={index} variant="secondary" className="text-xs">
+                                    <Leaf className="h-3 w-3 mr-1" />
+                                    {crop}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div>
+                                <p className="text-gray-500">Price Range</p>
+                                <p className="font-medium">{farmer.priceRange}</p>
+                              </div>
+                              <div>
+                                <p className="text-gray-500">Availability</p>
+                                {getAvailabilityBadge(farmer.availability)}
+                              </div>
+                            </div>
+                            
+                            <div className="flex justify-between items-center pt-3 border-t">
+                              <div className="text-xs text-gray-500">
+                                {farmer.totalSales} tons sold
+                              </div>
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => openFarmMallOrderDialog(farmer)}
+                                >
+                                  <ShoppingCart className="h-4 w-4 mr-1" />
+                                  Order
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                  
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <Pagination>
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious
+                            onClick={() => currentPage > 1 && paginate(currentPage - 1)}
+                            className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                          />
+                        </PaginationItem>
+                        
+                        {[...Array(totalPages)].map((_, i) => (
+                          <PaginationItem key={i}>
+                            <PaginationLink
+                              onClick={() => paginate(i + 1)}
+                              isActive={currentPage === i + 1}
+                              className="cursor-pointer"
+                            >
+                              {i + 1}
+                            </PaginationLink>
+                          </PaginationItem>
+                        ))}
+                        
+                        <PaginationItem>
+                          <PaginationNext
+                            onClick={() => currentPage < totalPages && paginate(currentPage + 1)}
+                            className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
@@ -1156,6 +1769,142 @@ export default function Procurement() {
               Cancel
             </Button>
             <Button onClick={handleCreateManualOrder}>
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Create Order
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* FarmMall Order Dialog */}
+      <Dialog open={isFarmMallOrderDialogOpen} onOpenChange={setIsFarmMallOrderDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create Order from FarmMall</DialogTitle>
+            <DialogDescription>
+              Create a purchase order from {selectedFarmer?.name}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {selectedFarmer && (
+              <>
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+                      <User className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium">{selectedFarmer.name}</h4>
+                      <div className="flex items-center gap-2 text-sm">
+                        <MapPin className="h-3 w-3" />
+                        {selectedFarmer.county}
+                        <span className="mx-1">•</span>
+                        <span className="text-green-600">{renderRating(selectedFarmer.rating)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <span className="text-blue-600">Type:</span>
+                      <p>{selectedFarmer.type}</p>
+                    </div>
+                    <div>
+                      <span className="text-blue-600">Delivery:</span>
+                      <p>{selectedFarmer.deliveryRadius}</p>
+                    </div>
+                    <div>
+                      <span className="text-blue-600">Price Range:</span>
+                      <p className="font-medium">{selectedFarmer.priceRange}</p>
+                    </div>
+                    <div>
+                      <span className="text-blue-600">Availability:</span>
+                      <p>{selectedFarmer.availability}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="farmmall-crop">Crop *</Label>
+                    <Select
+                      value={farmMallOrderForm.crop}
+                      onValueChange={(value) => setFarmMallOrderForm(prev => ({ ...prev, crop: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select crop" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {selectedFarmer.crops.map((crop, index) => (
+                          <SelectItem key={index} value={crop}>
+                            {crop}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="farmmall-quantity">Quantity (tons) *</Label>
+                      <Input
+                        id="farmmall-quantity"
+                        type="number"
+                        value={farmMallOrderForm.quantity}
+                        onChange={(e) => setFarmMallOrderForm(prev => ({ ...prev, quantity: e.target.value }))}
+                        placeholder="Enter quantity"
+                        min="0.1"
+                        step="0.1"
+                        required
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="farmmall-price">Price per ton (KES)</Label>
+                      <Input
+                        id="farmmall-price"
+                        type="number"
+                        value={farmMallOrderForm.price}
+                        onChange={(e) => setFarmMallOrderForm(prev => ({ ...prev, price: e.target.value }))}
+                        placeholder="Enter price"
+                        min="0"
+                        step="0.01"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="farmmall-expectedDeliveryDate">Expected Delivery *</Label>
+                    <Input
+                      id="farmmall-expectedDeliveryDate"
+                      type="date"
+                      value={farmMallOrderForm.expectedDeliveryDate}
+                      onChange={(e) => setFarmMallOrderForm(prev => ({ ...prev, expectedDeliveryDate: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="farmmall-notes">Order Notes</Label>
+                    <Textarea
+                      id="farmmall-notes"
+                      value={farmMallOrderForm.notes}
+                      onChange={(e) => setFarmMallOrderForm(prev => ({ ...prev, notes: e.target.value }))}
+                      placeholder="Quality requirements, delivery instructions..."
+                      rows={3}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+          
+          <DialogFooter className="sticky bottom-0 bg-white pt-4 border-t">
+            <Button variant="outline" onClick={() => setIsFarmMallOrderDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateFarmMallOrder} disabled={!farmMallOrderForm.quantity}>
               <CheckCircle className="h-4 w-4 mr-2" />
               Create Order
             </Button>
