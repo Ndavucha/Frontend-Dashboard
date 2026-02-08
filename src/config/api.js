@@ -129,6 +129,12 @@ export const API_CONFIG = {
       EXTERNAL_SUPPLIERS: '/api/procurement/external-suppliers'
     },
     
+     // Farmmall
+    FARM_MALL_FARMERS: '/api/farmmall/farmers',
+    FARM_MALL_ORDER: '/api/farmmall/orders',
+    FARM_MALL_FARMER_DETAIL: (id) => `/api/farmmall/farmers/${id}`, 
+  
+    
     // Aggregators
     AGGREGATORS: '/api/aggregators',
     AGGREGATOR_DETAIL: (id) => `/api/aggregators/${id}`,
@@ -215,3 +221,4 @@ export const API_CONFIG = {
     RESTORE: '/api/system/restore'
   }
 };
+
