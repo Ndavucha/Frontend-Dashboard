@@ -1,4 +1,4 @@
-// src/pages/Farmers.jsx - UPDATED VERSION WITH IMPROVED ADD FARMER FUNCTIONALITY
+// src/pages/Farmers.jsx - UPDATED WITH PROMINENT ADD FARMER BUTTON
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -617,6 +617,18 @@ export default function Farmers() {
       title="Farmer Management"
       description="View and manage contracted farmers. These farmers will be available for supply planning."
     >
+      {/* FLOATING ADD BUTTON - Always visible */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <Button 
+          onClick={() => setIsAddDialogOpen(true)}
+          size="lg"
+          className="h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-200"
+        >
+          <Plus className="h-6 w-6" />
+          <span className="sr-only">Add New Farmer</span>
+        </Button>
+      </div>
+
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -640,237 +652,13 @@ export default function Farmers() {
                     className="w-full sm:w-64 pl-9"
                   />
                 </div>
-                <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button className="w-full sm:w-auto">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Farmer
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                      <DialogTitle>Add New Farmer</DialogTitle>
-                      <DialogDescription>
-                        Add a new farmer to the system. They will be available for supply planning.
-                      </DialogDescription>
-                    </DialogHeader>
-                    
-                    <div className="grid gap-4 py-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="name">Full Name *</Label>
-                          <Input
-                            id="name"
-                            name="name"
-                            value={farmerForm.name}
-                            onChange={handleInputChange}
-                            placeholder="John Doe"
-                            required
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="gender">Gender</Label>
-                          <select
-                            id="gender"
-                            name="gender"
-                            value={farmerForm.gender}
-                            onChange={handleInputChange}
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            <option value="male">Male</option>
-                            <option value="female">Female</option>
-                            <option value="other">Other</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="age">Age</Label>
-                          <Input
-                            id="age"
-                            name="age"
-                            type="number"
-                            value={farmerForm.age}
-                            onChange={handleInputChange}
-                            placeholder="Age"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="location">Location *</Label>
-                          <Input
-                            id="location"
-                            name="location"
-                            value={farmerForm.location}
-                            onChange={handleInputChange}
-                            placeholder="Town/Village"
-                            required
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="county">County</Label>
-                          <Input
-                            id="county"
-                            name="county"
-                            value={farmerForm.county}
-                            onChange={handleInputChange}
-                            placeholder="County"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="phone">Phone Number</Label>
-                          <Input
-                            id="phone"
-                            name="phone"
-                            value={farmerForm.phone}
-                            onChange={handleInputChange}
-                            placeholder="+254712345678"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="email">Email</Label>
-                          <Input
-                            id="email"
-                            name="email"
-                            type="email"
-                            value={farmerForm.email}
-                            onChange={handleInputChange}
-                            placeholder="farmer@example.com"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="crop">Primary Crop *</Label>
-                        <select
-                          id="crop"
-                          name="crop"
-                          value={farmerForm.crop}
-                          onChange={handleInputChange}
-                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                          required
-                        >
-                          <option value="">Select a crop</option>
-                          <optgroup label="90 days growing period">
-                            <option value="Shangi">Shangi</option>
-                            <option value="Annet">Annet</option>
-                            <option value="Arizona">Arizona</option>
-                            <option value="Arnova">Arnova</option>
-                            <option value="Unica">Unica</option>
-                          </optgroup>
-                          <optgroup label="100 days growing period">
-                            <option value="Asante">Asante</option>
-                            <option value="Tigoni">Tigoni</option>
-                            <option value="Nyota">Nyota</option>
-                            <option value="Sherekea">Sherekea</option>
-                          </optgroup>
-                          <optgroup label="120 days growing period">
-                            <option value="Challenger">Challenger</option>
-                            <option value="Jelly">Jelly</option>
-                            <option value="Manitou">Manitou</option>
-                            <option value="Voyager">Voyager</option>
-                          </optgroup>
-                        </select>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="acreage">Acreage (acres)</Label>
-                          <Input
-                            id="acreage"
-                            name="acreage"
-                            type="number"
-                            step="0.1"
-                            value={farmerForm.acreage}
-                            onChange={handleInputChange}
-                            placeholder="50"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="estYield">Estimated Yield (tons)</Label>
-                          <Input
-                            id="estYield"
-                            name="estYield"
-                            type="number"
-                            step="0.1"
-                            value={farmerForm.estYield}
-                            onChange={handleInputChange}
-                            placeholder="10"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="status">Status</Label>
-                          <select
-                            id="status"
-                            name="status"
-                            value={farmerForm.status}
-                            onChange={handleInputChange}
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="plantingDate">Planting Date</Label>
-                          <Input
-                            id="plantingDate"
-                            name="plantingDate"
-                            type="date"
-                            value={farmerForm.plantingDate}
-                            onChange={handleInputChange}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="harvestingDateEst">Harvesting Date (Estimated)</Label>
-                          <Input
-                            id="harvestingDateEst"
-                            name="harvestingDateEst"
-                            type="date"
-                            value={farmerForm.harvestingDateEst}
-                            onChange={handleInputChange}
-                            readOnly
-                            className="bg-gray-50"
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            Calculated based on planting date and crop growing period
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="notes">Notes</Label>
-                        <Textarea
-                          id="notes"
-                          name="notes"
-                          value={farmerForm.notes}
-                          onChange={handleInputChange}
-                          placeholder="Additional notes about this farmer..."
-                          rows={3}
-                        />
-                      </div>
-                    </div>
-
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => {
-                        setIsAddDialogOpen(false);
-                        resetForm();
-                      }}>
-                        Cancel
-                      </Button>
-                      <Button onClick={handleAddFarmer}>
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Add Farmer
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                <Button 
+                  onClick={() => setIsAddDialogOpen(true)}
+                  className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Farmer
+                </Button>
               </div>
               
               {/* Quick Stats */}
@@ -1078,10 +866,461 @@ export default function Farmers() {
         </CardContent>
       </Card>
 
-      {/* Edit Farmer Dialog - Keep the same as before */}
-      {/* ... Edit dialog code remains the same ... */}
+      {/* Add Farmer Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add New Farmer</DialogTitle>
+            <DialogDescription>
+              Add a new farmer to the system. They will be available for supply planning.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Full Name *</Label>
+                <Input
+                  id="name"
+                  name="name"
+                  value={farmerForm.name}
+                  onChange={handleInputChange}
+                  placeholder="John Doe"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="gender">Gender</Label>
+                <select
+                  id="gender"
+                  name="gender"
+                  value={farmerForm.gender}
+                  onChange={handleInputChange}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            </div>
 
-      {/* Allocation Dialog - Based on Supply Planning but without farmer dropdown */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="age">Age</Label>
+                <Input
+                  id="age"
+                  name="age"
+                  type="number"
+                  value={farmerForm.age}
+                  onChange={handleInputChange}
+                  placeholder="Age"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="location">Location *</Label>
+                <Input
+                  id="location"
+                  name="location"
+                  value={farmerForm.location}
+                  onChange={handleInputChange}
+                  placeholder="Town/Village"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="county">County</Label>
+                <Input
+                  id="county"
+                  name="county"
+                  value={farmerForm.county}
+                  onChange={handleInputChange}
+                  placeholder="County"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input
+                  id="phone"
+                  name="phone"
+                  value={farmerForm.phone}
+                  onChange={handleInputChange}
+                  placeholder="+254712345678"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={farmerForm.email}
+                  onChange={handleInputChange}
+                  placeholder="farmer@example.com"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="crop">Primary Crop *</Label>
+              <select
+                id="crop"
+                name="crop"
+                value={farmerForm.crop}
+                onChange={handleInputChange}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                required
+              >
+                <option value="">Select a crop</option>
+                <optgroup label="90 days growing period">
+                  <option value="Shangi">Shangi</option>
+                  <option value="Annet">Annet</option>
+                  <option value="Arizona">Arizona</option>
+                  <option value="Arnova">Arnova</option>
+                  <option value="Unica">Unica</option>
+                </optgroup>
+                <optgroup label="100 days growing period">
+                  <option value="Asante">Asante</option>
+                  <option value="Tigoni">Tigoni</option>
+                  <option value="Nyota">Nyota</option>
+                  <option value="Sherekea">Sherekea</option>
+                </optgroup>
+                <optgroup label="120 days growing period">
+                  <option value="Challenger">Challenger</option>
+                  <option value="Jelly">Jelly</option>
+                  <option value="Manitou">Manitou</option>
+                  <option value="Voyager">Voyager</option>
+                </optgroup>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="acreage">Acreage (acres)</Label>
+                <Input
+                  id="acreage"
+                  name="acreage"
+                  type="number"
+                  step="0.1"
+                  value={farmerForm.acreage}
+                  onChange={handleInputChange}
+                  placeholder="50"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="estYield">Estimated Yield (tons)</Label>
+                <Input
+                  id="estYield"
+                  name="estYield"
+                  type="number"
+                  step="0.1"
+                  value={farmerForm.estYield}
+                  onChange={handleInputChange}
+                  placeholder="10"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="status">Status</Label>
+                <select
+                  id="status"
+                  name="status"
+                  value={farmerForm.status}
+                  onChange={handleInputChange}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="plantingDate">Planting Date</Label>
+                <Input
+                  id="plantingDate"
+                  name="plantingDate"
+                  type="date"
+                  value={farmerForm.plantingDate}
+                  onChange={handleInputChange}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="harvestingDateEst">Harvesting Date (Estimated)</Label>
+                <Input
+                  id="harvestingDateEst"
+                  name="harvestingDateEst"
+                  type="date"
+                  value={farmerForm.harvestingDateEst}
+                  onChange={handleInputChange}
+                  readOnly
+                  className="bg-gray-50"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Calculated based on planting date and crop growing period
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea
+                id="notes"
+                name="notes"
+                value={farmerForm.notes}
+                onChange={handleInputChange}
+                placeholder="Additional notes about this farmer..."
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setIsAddDialogOpen(false);
+              resetForm();
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddFarmer}>
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Add Farmer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Farmer Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Farmer</DialogTitle>
+            <DialogDescription>
+              Update farmer information.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Full Name *</Label>
+                <Input
+                  id="edit-name"
+                  name="name"
+                  value={farmerForm.name}
+                  onChange={handleInputChange}
+                  placeholder="John Doe"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-gender">Gender</Label>
+                <select
+                  id="edit-gender"
+                  name="gender"
+                  value={farmerForm.gender}
+                  onChange={handleInputChange}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-age">Age</Label>
+                <Input
+                  id="edit-age"
+                  name="age"
+                  type="number"
+                  value={farmerForm.age}
+                  onChange={handleInputChange}
+                  placeholder="Age"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-location">Location *</Label>
+                <Input
+                  id="edit-location"
+                  name="location"
+                  value={farmerForm.location}
+                  onChange={handleInputChange}
+                  placeholder="Town/Village"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-county">County</Label>
+                <Input
+                  id="edit-county"
+                  name="county"
+                  value={farmerForm.county}
+                  onChange={handleInputChange}
+                  placeholder="County"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-phone">Phone Number</Label>
+                <Input
+                  id="edit-phone"
+                  name="phone"
+                  value={farmerForm.phone}
+                  onChange={handleInputChange}
+                  placeholder="+254712345678"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-email">Email</Label>
+                <Input
+                  id="edit-email"
+                  name="email"
+                  type="email"
+                  value={farmerForm.email}
+                  onChange={handleInputChange}
+                  placeholder="farmer@example.com"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-crop">Primary Crop *</Label>
+              <select
+                id="edit-crop"
+                name="crop"
+                value={farmerForm.crop}
+                onChange={handleInputChange}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                required
+              >
+                <option value="">Select a crop</option>
+                <optgroup label="90 days growing period">
+                  <option value="Shangi">Shangi</option>
+                  <option value="Annet">Annet</option>
+                  <option value="Arizona">Arizona</option>
+                  <option value="Arnova">Arnova</option>
+                  <option value="Unica">Unica</option>
+                </optgroup>
+                <optgroup label="100 days growing period">
+                  <option value="Asante">Asante</option>
+                  <option value="Tigoni">Tigoni</option>
+                  <option value="Nyota">Nyota</option>
+                  <option value="Sherekea">Sherekea</option>
+                </optgroup>
+                <optgroup label="120 days growing period">
+                  <option value="Challenger">Challenger</option>
+                  <option value="Jelly">Jelly</option>
+                  <option value="Manitou">Manitou</option>
+                  <option value="Voyager">Voyager</option>
+                </optgroup>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-acreage">Acreage (acres)</Label>
+                <Input
+                  id="edit-acreage"
+                  name="acreage"
+                  type="number"
+                  step="0.1"
+                  value={farmerForm.acreage}
+                  onChange={handleInputChange}
+                  placeholder="50"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-estYield">Estimated Yield (tons)</Label>
+                <Input
+                  id="edit-estYield"
+                  name="estYield"
+                  type="number"
+                  step="0.1"
+                  value={farmerForm.estYield}
+                  onChange={handleInputChange}
+                  placeholder="10"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-status">Status</Label>
+                <select
+                  id="edit-status"
+                  name="status"
+                  value={farmerForm.status}
+                  onChange={handleInputChange}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-plantingDate">Planting Date</Label>
+                <Input
+                  id="edit-plantingDate"
+                  name="plantingDate"
+                  type="date"
+                  value={farmerForm.plantingDate}
+                  onChange={handleInputChange}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-harvestingDateEst">Harvesting Date (Estimated)</Label>
+                <Input
+                  id="edit-harvestingDateEst"
+                  name="harvestingDateEst"
+                  type="date"
+                  value={farmerForm.harvestingDateEst}
+                  onChange={handleInputChange}
+                  readOnly
+                  className="bg-gray-50"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Calculated based on planting date and crop growing period
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-notes">Notes</Label>
+              <Textarea
+                id="edit-notes"
+                name="notes"
+                value={farmerForm.notes}
+                onChange={handleInputChange}
+                placeholder="Additional notes about this farmer..."
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setIsEditDialogOpen(false);
+              resetForm();
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateFarmer}>
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Update Farmer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Allocation Dialog */}
       <Dialog open={isAllocationDialogOpen} onOpenChange={(open) => {
         setIsAllocationDialogOpen(open);
         if (!open) {
