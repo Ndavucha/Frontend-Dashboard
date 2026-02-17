@@ -1,8 +1,19 @@
-import { Bell, Search, User, Menu } from 'lucide-react';
+// src/components/layout/DashboardHeader.jsx
+import { Bell, Search, Menu, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useAuth } from '@/context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 export function DashboardHeader({ title, description, onMenuClick }) {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex items-center gap-4">
@@ -48,16 +59,29 @@ export function DashboardHeader({ title, description, onMenuClick }) {
           </span>
         </Button>
         
-        {/* User profile */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="rounded-full"
-        >
-          <div className="h-8 w-8 rounded-full bg-brand-green flex items-center justify-center">
-            <span className="text-white font-bold text-sm">JD</span>
+        {/* User profile and logout */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 border-r pr-2">
+            <div className="h-8 w-8 rounded-full bg-brand-green flex items-center justify-center">
+              <span className="text-white font-bold text-sm">
+                {user?.initials || 'U'}
+              </span>
+            </div>
+            <span className="text-sm font-medium hidden sm:inline">
+              {user?.name || 'User'}
+            </span>
           </div>
-        </Button>
+          
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleLogout}
+            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+          >
+            <LogOut className="h-4 w-4" />
+            <span className="hidden sm:inline ml-2">Logout</span>
+          </Button>
+        </div>
       </div>
     </header>
   );
