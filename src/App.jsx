@@ -1,5 +1,10 @@
+// src/App.jsx
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
+import Login from './pages/login';
+import Register from './pages/register';
 import Dashboard from './pages/Dashboard';
 import Farmers from './pages/Farmers';
 import Procurement from './pages/Procurement';
@@ -18,35 +23,85 @@ function App() {
   
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/farmers" element={<Farmers />} />
-        <Route path="/SupplyPlanning" element={<SupplyPlanning />} />
-        <Route path="/procurement" element={<Procurement />} />
-        <Route path="/FarmMall" element={<FarmMall />} />
-        <Route path="/aggregators" element={<Aggregators />} />
-        <Route path="/contracts" element={<Contracts />} />
-        <Route path="/analytics" element={<Analytics />} />
-        <Route path="/onboarding" element={<Onboarding />} />
-        <Route path="/settings" element={<Settings />} />
-      </Routes>
-      
-      <Toaster 
-        position="top-right"
-        toastOptions={{
-          style: {
-            background: 'hsl(var(--background))',
-            color: 'hsl(var(--foreground))',
-            border: '1px solid hsl(var(--border))',
-          },
-          success: {
+      <AuthProvider>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          
+          {/* Protected routes */}
+          <Route path="/" element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/farmers" element={
+            <ProtectedRoute>
+              <Farmers />
+            </ProtectedRoute>
+          } />
+          <Route path="/SupplyPlanning" element={
+            <ProtectedRoute>
+              <SupplyPlanning />
+            </ProtectedRoute>
+          } />
+          <Route path="/procurement" element={
+            <ProtectedRoute>
+              <Procurement />
+            </ProtectedRoute>
+          } />
+          <Route path="/aggregators" element={
+            <ProtectedRoute>
+              <Aggregators />
+            </ProtectedRoute>
+          } />
+          <Route path="/contracts" element={
+            <ProtectedRoute>
+              <Contracts />
+            </ProtectedRoute>
+          } />
+          <Route path="/FarmMall" element={
+            <ProtectedRoute>
+              <FarmMall />
+            </ProtectedRoute>
+          } />
+          <Route path="/analytics" element={
+            <ProtectedRoute>
+              <Analytics />
+            </ProtectedRoute>
+          } />
+          <Route path="/onboarding" element={
+            <ProtectedRoute>
+              <Onboarding />
+            </ProtectedRoute>
+          } />
+          <Route path="/settings" element={
+            <ProtectedRoute>
+              <Settings />
+            </ProtectedRoute>
+          } />
+          
+          {/* Catch all - redirect to dashboard */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+        
+        <Toaster 
+          position="top-right"
+          toastOptions={{
             style: {
-              background: '#217A2D',
-              color: 'white',
+              background: 'hsl(var(--background))',
+              color: 'hsl(var(--foreground))',
+              border: '1px solid hsl(var(--border))',
             },
-          },
-        }}
-      />
+            success: {
+              style: {
+                background: '#217A2D',
+                color: 'white',
+              },
+            },
+          }}
+        />
+      </AuthProvider>
     </BrowserRouter>
   );
 }
