@@ -1,4 +1,4 @@
-// src/pages/SupplyPlanning.jsx - UPDATED WITH DEMAND INPUT SECTION
+// src/pages/SupplyPlanning.jsx - FIXED VERSION
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -86,25 +86,19 @@ export default function SupplyPlanning() {
   const [demandForm, setDemandForm] = useState({
     date: new Date().toISOString().split('T')[0],
     quantity: '',
-    productType: 'Fresh Potatoes',
-    quality: 'Grade A',
+    cropType: 'Potatoes',
+    variety: '',
+    specifications: '', // Custom input for quality/size specs
     source: 'manual',
     notes: ''
   });
 
-  // Product options
-  const productOptions = [
-    'Fresh Potatoes',
-    'Processing Potatoes',
-    'Seed Potatoes',
-    'Table Potatoes'
-  ];
-
-  const qualityOptions = [
-    'Grade A',
-    'Grade B',
-    'Grade C',
-    'Premium'
+  // Crop options
+  const cropOptions = [
+    'Potatoes',
+    'Irish Potatoes',
+    'Sweet Potatoes',
+    'Other'
   ];
 
   // Fetch data
@@ -141,54 +135,19 @@ export default function SupplyPlanning() {
   const calculateSupplyDemandBalance = () => {
     const balanceData = [];
     
-    // If no demand forecast but we have allocations, show allocations with 0 demand
-    if (demandForecast.length === 0 && allocations.length > 0) {
-      // Group allocations by date
-      const allocationsByDate = {};
-      allocations.forEach(allocation => {
-        if (!allocation.date) return;
-        const dateKey = new Date(allocation.date).toISOString().split('T')[0];
-        if (!allocationsByDate[dateKey]) {
-          allocationsByDate[dateKey] = [];
-        }
-        allocationsByDate[dateKey].push(allocation);
-      });
-
-      // Show allocations with 0 demand for next 7 days
-      const today = new Date();
-      for (let i = 0; i < 7; i++) {
-        const date = new Date(today);
-        date.setDate(date.getDate() + i);
-        const dateKey = date.toISOString().split('T')[0];
-        const dailyAllocations = allocationsByDate[dateKey] || [];
-        
-        const totalSupply = dailyAllocations.reduce((sum, a) => sum + (a.quantity || 0), 0);
-        const totalDemand = 0; // No demand forecast
-        const balance = totalSupply - totalDemand;
-        
-        balanceData.push({
-          date: date.toISOString(),
-          dateKey,
-          demand: totalDemand,
-          supply: totalSupply,
-          balance,
-          status: balance === 0 ? 'met' : balance < 0 ? 'shortage' : 'oversupply',
-          allocations: dailyAllocations,
-          color: balance === 0 ? 'green' : balance < 0 ? 'red' : 'blue'
-        });
+    // Group allocations by date
+    const allocationsByDate = {};
+    allocations.forEach(allocation => {
+      if (!allocation.date) return;
+      const dateKey = new Date(allocation.date).toISOString().split('T')[0];
+      if (!allocationsByDate[dateKey]) {
+        allocationsByDate[dateKey] = [];
       }
-    } else if (demandForecast.length > 0) {
-      // Original logic with demand forecast
-      const allocationsByDate = {};
-      allocations.forEach(allocation => {
-        if (!allocation.date) return;
-        const dateKey = new Date(allocation.date).toISOString().split('T')[0];
-        if (!allocationsByDate[dateKey]) {
-          allocationsByDate[dateKey] = [];
-        }
-        allocationsByDate[dateKey].push(allocation);
-      });
+      allocationsByDate[dateKey].push(allocation);
+    });
 
+    // If we have demand forecasts, use them
+    if (demandForecast.length > 0) {
       demandForecast.forEach(demand => {
         const dateKey = new Date(demand.date).toISOString().split('T')[0];
         const dailyAllocations = allocationsByDate[dateKey] || [];
@@ -206,12 +165,38 @@ export default function SupplyPlanning() {
           balance,
           status: balance === 0 ? 'met' : balance < 0 ? 'shortage' : 'oversupply',
           allocations: dailyAllocations,
-          productType: demand.productType || 'Fresh Potatoes',
-          quality: demand.quality || 'Grade A',
+          cropType: demand.cropType || 'Potatoes',
+          variety: demand.variety || '',
+          specifications: demand.specifications || '',
           notes: demand.notes,
           color: balance === 0 ? 'green' : balance < 0 ? 'red' : 'blue'
         });
       });
+    } 
+    // If no demand but we have allocations, show next 7 days with zero demand
+    else if (allocations.length > 0) {
+      const today = new Date();
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(today);
+        date.setDate(date.getDate() + i);
+        const dateKey = date.toISOString().split('T')[0];
+        const dailyAllocations = allocationsByDate[dateKey] || [];
+        
+        const totalSupply = dailyAllocations.reduce((sum, a) => sum + (a.quantity || 0), 0);
+        const totalDemand = 0;
+        const balance = totalSupply - totalDemand;
+        
+        balanceData.push({
+          date: date.toISOString(),
+          dateKey,
+          demand: totalDemand,
+          supply: totalSupply,
+          balance,
+          status: balance === 0 ? 'met' : balance < 0 ? 'shortage' : 'oversupply',
+          allocations: dailyAllocations,
+          color: balance === 0 ? 'green' : balance < 0 ? 'red' : 'blue'
+        });
+      }
     }
 
     // Sort by date
@@ -232,8 +217,9 @@ export default function SupplyPlanning() {
     setDemandForm({
       date: new Date().toISOString().split('T')[0],
       quantity: '',
-      productType: 'Fresh Potatoes',
-      quality: 'Grade A',
+      cropType: 'Potatoes',
+      variety: '',
+      specifications: '',
       source: 'manual',
       notes: ''
     });
@@ -252,34 +238,34 @@ export default function SupplyPlanning() {
         return;
       }
 
-      // Check if demand already exists for this date
-      const existingDemand = demandForecast.find(d => 
-        new Date(d.date).toISOString().split('T')[0] === demandForm.date
-      );
+      // Check if demand already exists for this specific date
+      const existingDemand = demandForecast.find(d => {
+        const demandDate = new Date(d.date).toISOString().split('T')[0];
+        const formDate = demandForm.date;
+        return demandDate === formDate;
+      });
 
       if (existingDemand) {
-        toast.error('Demand already exists for this date. Please edit the existing demand instead.');
+        toast.error(`Demand already exists for ${demandForm.date}. Please edit the existing demand instead.`);
         return;
       }
 
       const newDemand = {
-        id: Date.now(),
+        id: Date.now(), // Use timestamp as unique ID
         date: demandForm.date,
         quantity: parseFloat(demandForm.quantity),
-        productType: demandForm.productType,
-        quality: demandForm.quality,
+        cropType: demandForm.cropType,
+        variety: demandForm.variety,
+        specifications: demandForm.specifications,
         source: demandForm.source,
         notes: demandForm.notes,
         createdAt: new Date().toISOString()
       };
 
-      // In a real app, this would be an API call
-      // await apiService.procurement.createDemand(newDemand);
-      
-      // For now, update local state
+      // Update local state - add new demand to existing array
       setDemandForecast(prev => [...prev, newDemand]);
       
-      toast.success('Demand added successfully!');
+      toast.success(`Demand added for ${demandForm.date}!`);
       setIsAddDemandDialogOpen(false);
       resetDemandForm();
       
@@ -295,8 +281,9 @@ export default function SupplyPlanning() {
     setDemandForm({
       date: new Date(demand.date).toISOString().split('T')[0],
       quantity: demand.quantity.toString(),
-      productType: demand.productType || 'Fresh Potatoes',
-      quality: demand.quality || 'Grade A',
+      cropType: demand.cropType || 'Potatoes',
+      variety: demand.variety || '',
+      specifications: demand.specifications || '',
       source: demand.source || 'manual',
       notes: demand.notes || ''
     });
@@ -318,21 +305,32 @@ export default function SupplyPlanning() {
         return;
       }
 
+      // Check if changing date and new date already has demand (excluding current)
+      if (demandForm.date !== selectedDemand.date) {
+        const existingDemand = demandForecast.find(d => 
+          d.id !== selectedDemand.id && 
+          new Date(d.date).toISOString().split('T')[0] === demandForm.date
+        );
+
+        if (existingDemand) {
+          toast.error(`Demand already exists for ${demandForm.date}`);
+          return;
+        }
+      }
+
       const updatedDemand = {
         ...selectedDemand,
         date: demandForm.date,
         quantity: parseFloat(demandForm.quantity),
-        productType: demandForm.productType,
-        quality: demandForm.quality,
+        cropType: demandForm.cropType,
+        variety: demandForm.variety,
+        specifications: demandForm.specifications,
         source: demandForm.source,
         notes: demandForm.notes,
         updatedAt: new Date().toISOString()
       };
 
-      // In a real app, this would be an API call
-      // await apiService.procurement.updateDemand(selectedDemand.id, updatedDemand);
-      
-      // For now, update local state
+      // Update local state
       setDemandForecast(prev => 
         prev.map(d => d.id === selectedDemand.id ? updatedDemand : d)
       );
@@ -354,10 +352,7 @@ export default function SupplyPlanning() {
         return;
       }
 
-      // In a real app, this would be an API call
-      // await apiService.procurement.deleteDemand(demandId);
-      
-      // For now, update local state
+      // Update local state
       setDemandForecast(prev => prev.filter(d => d.id !== demandId));
       
       toast.success('Demand deleted successfully!');
@@ -370,7 +365,6 @@ export default function SupplyPlanning() {
 
   // Bulk add demand for multiple days
   const handleBulkAddDemand = () => {
-    // This could open a dialog to add demand for a range of dates
     toast.info('Bulk add feature coming soon!');
   };
 
@@ -509,7 +503,7 @@ export default function SupplyPlanning() {
       description="Plan and manage supply against company demand"
     >
       <div className="space-y-6">
-        {/* Demand Input Section - NEW */}
+        {/* Demand Input Section */}
         <Card className="border-green-200 bg-green-50/30">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -548,8 +542,9 @@ export default function SupplyPlanning() {
                   <TableHeader>
                     <TableRow className="bg-green-100/50">
                       <TableHead>Date</TableHead>
-                      <TableHead>Product Type</TableHead>
-                      <TableHead>Quality</TableHead>
+                      <TableHead>Crop</TableHead>
+                      <TableHead>Variety</TableHead>
+                      <TableHead>Specifications</TableHead>
                       <TableHead>Quantity (tons)</TableHead>
                       <TableHead>Notes</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
@@ -561,11 +556,14 @@ export default function SupplyPlanning() {
                         <TableCell className="font-medium">
                           {formatDate(demand.date)}
                         </TableCell>
-                        <TableCell>{demand.productType || 'Fresh Potatoes'}</TableCell>
+                        <TableCell>{demand.cropType || 'Potatoes'}</TableCell>
+                        <TableCell>{demand.variety || '-'}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="bg-green-50">
-                            {demand.quality || 'Grade A'}
-                          </Badge>
+                          {demand.specifications ? (
+                            <Badge variant="outline" className="bg-green-50">
+                              {demand.specifications}
+                            </Badge>
+                          ) : '-'}
                         </TableCell>
                         <TableCell className="font-bold">
                           {demand.quantity} tons
@@ -609,8 +607,9 @@ export default function SupplyPlanning() {
           )}
         </Card>
 
-        {/* Summary Cards */}
+        {/* Summary Cards - keep existing */}
         <div className="grid gap-4 md:grid-cols-4">
+          {/* ... existing summary cards ... */}
           <Card>
             <CardContent className="pt-6">
               <div className="text-center">
@@ -672,7 +671,7 @@ export default function SupplyPlanning() {
           </Card>
         </div>
 
-        {/* Tabs for different views */}
+        {/* Tabs for different views - keep existing */}
         <Tabs defaultValue="balance" className="space-y-4">
           <TabsList>
             <TabsTrigger value="balance">Supply-Demand Balance</TabsTrigger>
@@ -825,8 +824,9 @@ export default function SupplyPlanning() {
                                             id: item.id,
                                             date: item.date,
                                             quantity: item.demand,
-                                            productType: item.productType,
-                                            quality: item.quality,
+                                            cropType: item.cropType,
+                                            variety: item.variety,
+                                            specifications: item.specifications,
                                             notes: item.notes
                                           })}
                                           className="h-8 text-xs"
@@ -933,8 +933,9 @@ export default function SupplyPlanning() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Date</TableHead>
-                          <TableHead>Product Type</TableHead>
-                          <TableHead>Quality</TableHead>
+                          <TableHead>Crop</TableHead>
+                          <TableHead>Variety</TableHead>
+                          <TableHead>Specifications</TableHead>
                           <TableHead>Quantity (tons)</TableHead>
                           <TableHead>Notes</TableHead>
                           <TableHead className="text-right">Actions</TableHead>
@@ -946,11 +947,14 @@ export default function SupplyPlanning() {
                             <TableCell className="font-medium">
                               {formatDate(demand.date)}
                             </TableCell>
-                            <TableCell>{demand.productType || 'Fresh Potatoes'}</TableCell>
+                            <TableCell>{demand.cropType || 'Potatoes'}</TableCell>
+                            <TableCell>{demand.variety || '-'}</TableCell>
                             <TableCell>
-                              <Badge variant="outline" className="bg-green-50">
-                                {demand.quality || 'Grade A'}
-                              </Badge>
+                              {demand.specifications ? (
+                                <Badge variant="outline" className="bg-green-50">
+                                  {demand.specifications}
+                                </Badge>
+                              ) : '-'}
                             </TableCell>
                             <TableCell className="font-bold">
                               {demand.quantity} tons
@@ -1184,7 +1188,7 @@ export default function SupplyPlanning() {
         </div>
       </div>
 
-      {/* Add Demand Dialog */}
+      {/* Add Demand Dialog - UPDATED */}
       <Dialog open={isAddDemandDialogOpen} onOpenChange={setIsAddDemandDialogOpen}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -1223,16 +1227,16 @@ export default function SupplyPlanning() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="productType">Product Type</Label>
+              <Label htmlFor="cropType">Crop Type</Label>
               <Select
-                value={demandForm.productType}
-                onValueChange={(value) => setDemandForm(prev => ({ ...prev, productType: value }))}
+                value={demandForm.cropType}
+                onValueChange={(value) => setDemandForm(prev => ({ ...prev, cropType: value }))}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select product type" />
+                  <SelectValue placeholder="Select crop type" />
                 </SelectTrigger>
                 <SelectContent>
-                  {productOptions.map(option => (
+                  {cropOptions.map(option => (
                     <SelectItem key={option} value={option}>{option}</SelectItem>
                   ))}
                 </SelectContent>
@@ -1240,20 +1244,28 @@ export default function SupplyPlanning() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="quality">Quality Grade</Label>
-              <Select
-                value={demandForm.quality}
-                onValueChange={(value) => setDemandForm(prev => ({ ...prev, quality: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select quality grade" />
-                </SelectTrigger>
-                <SelectContent>
-                  {qualityOptions.map(option => (
-                    <SelectItem key={option} value={option}>{option}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="variety">Variety</Label>
+              <Input
+                id="variety"
+                name="variety"
+                value={demandForm.variety}
+                onChange={handleDemandInputChange}
+                placeholder="e.g., Shangi, Unica, etc."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="specifications">Size/Specifications</Label>
+              <Input
+                id="specifications"
+                name="specifications"
+                value={demandForm.specifications}
+                onChange={handleDemandInputChange}
+                placeholder="e.g., 60mm and above, Grade A, etc."
+              />
+              <p className="text-xs text-muted-foreground">
+                Enter size requirements or quality specifications
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -1284,7 +1296,7 @@ export default function SupplyPlanning() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Demand Dialog */}
+      {/* Edit Demand Dialog - UPDATED */}
       <Dialog open={isEditDemandDialogOpen} onOpenChange={setIsEditDemandDialogOpen}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -1323,16 +1335,16 @@ export default function SupplyPlanning() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-productType">Product Type</Label>
+              <Label htmlFor="edit-cropType">Crop Type</Label>
               <Select
-                value={demandForm.productType}
-                onValueChange={(value) => setDemandForm(prev => ({ ...prev, productType: value }))}
+                value={demandForm.cropType}
+                onValueChange={(value) => setDemandForm(prev => ({ ...prev, cropType: value }))}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select product type" />
+                  <SelectValue placeholder="Select crop type" />
                 </SelectTrigger>
                 <SelectContent>
-                  {productOptions.map(option => (
+                  {cropOptions.map(option => (
                     <SelectItem key={option} value={option}>{option}</SelectItem>
                   ))}
                 </SelectContent>
@@ -1340,20 +1352,25 @@ export default function SupplyPlanning() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-quality">Quality Grade</Label>
-              <Select
-                value={demandForm.quality}
-                onValueChange={(value) => setDemandForm(prev => ({ ...prev, quality: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select quality grade" />
-                </SelectTrigger>
-                <SelectContent>
-                  {qualityOptions.map(option => (
-                    <SelectItem key={option} value={option}>{option}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="edit-variety">Variety</Label>
+              <Input
+                id="edit-variety"
+                name="variety"
+                value={demandForm.variety}
+                onChange={handleDemandInputChange}
+                placeholder="e.g., Shangi, Unica, etc."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-specifications">Size/Specifications</Label>
+              <Input
+                id="edit-specifications"
+                name="specifications"
+                value={demandForm.specifications}
+                onChange={handleDemandInputChange}
+                placeholder="e.g., 60mm and above, Grade A, etc."
+              />
             </div>
 
             <div className="space-y-2">
@@ -1384,7 +1401,7 @@ export default function SupplyPlanning() {
         </DialogContent>
       </Dialog>
 
-      {/* Send Order Dialog */}
+      {/* Send Order Dialog - keep existing */}
       <Dialog open={isOrderDialogOpen} onOpenChange={setIsOrderDialogOpen}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -1446,7 +1463,7 @@ export default function SupplyPlanning() {
         </DialogContent>
       </Dialog>
 
-      {/* Supplement Request Dialog */}
+      {/* Supplement Request Dialog - keep existing */}
       <Dialog open={isSupplementDialogOpen} onOpenChange={setIsSupplementDialogOpen}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
