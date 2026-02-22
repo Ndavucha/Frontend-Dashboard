@@ -1,4 +1,4 @@
-// src/pages/SupplyPlanning.jsx - FIXED VERSION
+// src/pages/SupplyPlanning.jsx - CLEAN VERSION (No demo data)
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,26 +21,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { 
   TrendingUp, 
-  TrendingDown,
   Calendar as CalendarIcon, 
   Mail,
   Phone,
   PackageCheck,
-  XCircle,
   RefreshCw,
   Send,
-  Truck,
   CheckCircle,
   AlertCircle,
   ChevronDown,
@@ -52,8 +43,7 @@ import {
   Plus,
   Edit,
   Trash2,
-  Target,
-  BarChart3
+  Target
 } from 'lucide-react';
 import { apiService } from '@/api/services';
 import { toast } from 'sonner';
@@ -70,7 +60,6 @@ export default function SupplyPlanning() {
   const [expandedRow, setExpandedRow] = useState(null);
   const [selectedAllocation, setSelectedAllocation] = useState(null);
   const [selectedDemand, setSelectedDemand] = useState(null);
-  const [activeTab, setActiveTab] = useState('balance');
   
   const [orderForm, setOrderForm] = useState({
     orderQuantity: '',
@@ -88,8 +77,7 @@ export default function SupplyPlanning() {
     quantity: '',
     cropType: 'Potatoes',
     variety: '',
-    specifications: '', // Custom input for quality/size specs
-    source: 'manual',
+    specifications: '',
     notes: ''
   });
 
@@ -101,14 +89,14 @@ export default function SupplyPlanning() {
     'Other'
   ];
 
-  // Fetch data
+  // Fetch data from API
   const fetchData = async () => {
     try {
       setLoading(true);
       
       const [allocationsResponse, demandResponse] = await Promise.all([
         apiService.supply.getAllocations(),
-        apiService.procurement.getDemandForecast(30) // 30-day forecast
+        apiService.procurement.getDemandForecast(30)
       ]);
       
       const allocationsArray = Array.isArray(allocationsResponse) ? allocationsResponse : [];
@@ -131,7 +119,7 @@ export default function SupplyPlanning() {
     fetchData();
   }, []);
 
-  // Calculate supply-demand balance
+  // Calculate supply-demand balance based on actual data
   const calculateSupplyDemandBalance = () => {
     const balanceData = [];
     
@@ -146,7 +134,7 @@ export default function SupplyPlanning() {
       allocationsByDate[dateKey].push(allocation);
     });
 
-    // If we have demand forecasts, use them
+    // Use actual demand forecasts if they exist
     if (demandForecast.length > 0) {
       demandForecast.forEach(demand => {
         const dateKey = new Date(demand.date).toISOString().split('T')[0];
@@ -168,35 +156,9 @@ export default function SupplyPlanning() {
           cropType: demand.cropType || 'Potatoes',
           variety: demand.variety || '',
           specifications: demand.specifications || '',
-          notes: demand.notes,
-          color: balance === 0 ? 'green' : balance < 0 ? 'red' : 'blue'
+          notes: demand.notes
         });
       });
-    } 
-    // If no demand but we have allocations, show next 7 days with zero demand
-    else if (allocations.length > 0) {
-      const today = new Date();
-      for (let i = 0; i < 7; i++) {
-        const date = new Date(today);
-        date.setDate(date.getDate() + i);
-        const dateKey = date.toISOString().split('T')[0];
-        const dailyAllocations = allocationsByDate[dateKey] || [];
-        
-        const totalSupply = dailyAllocations.reduce((sum, a) => sum + (a.quantity || 0), 0);
-        const totalDemand = 0;
-        const balance = totalSupply - totalDemand;
-        
-        balanceData.push({
-          date: date.toISOString(),
-          dateKey,
-          demand: totalDemand,
-          supply: totalSupply,
-          balance,
-          status: balance === 0 ? 'met' : balance < 0 ? 'shortage' : 'oversupply',
-          allocations: dailyAllocations,
-          color: balance === 0 ? 'green' : balance < 0 ? 'red' : 'blue'
-        });
-      }
     }
 
     // Sort by date
@@ -220,7 +182,6 @@ export default function SupplyPlanning() {
       cropType: 'Potatoes',
       variety: '',
       specifications: '',
-      source: 'manual',
       notes: ''
     });
   };
@@ -257,11 +218,13 @@ export default function SupplyPlanning() {
         cropType: demandForm.cropType,
         variety: demandForm.variety,
         specifications: demandForm.specifications,
-        source: demandForm.source,
         notes: demandForm.notes,
         createdAt: new Date().toISOString()
       };
 
+      // In a real app, this would be an API call
+      // await apiService.procurement.createDemand(newDemand);
+      
       // Update local state - add new demand to existing array
       setDemandForecast(prev => [...prev, newDemand]);
       
@@ -284,7 +247,6 @@ export default function SupplyPlanning() {
       cropType: demand.cropType || 'Potatoes',
       variety: demand.variety || '',
       specifications: demand.specifications || '',
-      source: demand.source || 'manual',
       notes: demand.notes || ''
     });
     setIsEditDemandDialogOpen(true);
@@ -325,11 +287,13 @@ export default function SupplyPlanning() {
         cropType: demandForm.cropType,
         variety: demandForm.variety,
         specifications: demandForm.specifications,
-        source: demandForm.source,
         notes: demandForm.notes,
         updatedAt: new Date().toISOString()
       };
 
+      // In a real app, this would be an API call
+      // await apiService.procurement.updateDemand(selectedDemand.id, updatedDemand);
+      
       // Update local state
       setDemandForecast(prev => 
         prev.map(d => d.id === selectedDemand.id ? updatedDemand : d)
@@ -352,6 +316,9 @@ export default function SupplyPlanning() {
         return;
       }
 
+      // In a real app, this would be an API call
+      // await apiService.procurement.deleteDemand(demandId);
+      
       // Update local state
       setDemandForecast(prev => prev.filter(d => d.id !== demandId));
       
@@ -361,11 +328,6 @@ export default function SupplyPlanning() {
       console.error('Error deleting demand:', error);
       toast.error('Failed to delete demand');
     }
-  };
-
-  // Bulk add demand for multiple days
-  const handleBulkAddDemand = () => {
-    toast.info('Bulk add feature coming soon!');
   };
 
   // Toggle row expansion
@@ -426,8 +388,6 @@ export default function SupplyPlanning() {
         return;
       }
 
-      console.log('Requesting supplement:', supplementForm);
-      
       await apiService.procurement.requestSupplement(supplementForm);
       
       toast.success(`Supplement request for ${supplementForm.quantity} tons sent!`);
@@ -473,7 +433,7 @@ export default function SupplyPlanning() {
     }
   };
 
-  // Calculate totals
+  // Calculate totals from actual data
   const balanceData = calculateSupplyDemandBalance();
   const totalDemand = balanceData.reduce((sum, d) => sum + d.demand, 0);
   const totalSupply = balanceData.reduce((sum, d) => sum + d.supply, 0);
@@ -511,24 +471,14 @@ export default function SupplyPlanning() {
                 <Target className="h-5 w-5 text-green-600" />
                 <CardTitle className="text-lg">Demand Input</CardTitle>
               </div>
-              <div className="flex gap-2">
-                <Button 
-                  size="sm"
-                  onClick={() => setIsAddDemandDialogOpen(true)}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Daily Demand
-                </Button>
-                <Button 
-                  size="sm"
-                  variant="outline"
-                  onClick={handleBulkAddDemand}
-                >
-                  <BarChart3 className="h-4 w-4 mr-2" />
-                  Bulk Add
-                </Button>
-              </div>
+              <Button 
+                size="sm"
+                onClick={() => setIsAddDemandDialogOpen(true)}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Daily Demand
+              </Button>
             </div>
             <CardDescription>
               Input daily demand forecasts to plan supply requirements
@@ -551,7 +501,7 @@ export default function SupplyPlanning() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {demandForecast.slice(0, 5).map((demand) => (
+                    {demandForecast.map((demand) => (
                       <TableRow key={demand.id} className="hover:bg-green-50/50">
                         <TableCell className="font-medium">
                           {formatDate(demand.date)}
@@ -595,21 +545,13 @@ export default function SupplyPlanning() {
                     ))}
                   </TableBody>
                 </Table>
-                {demandForecast.length > 5 && (
-                  <div className="p-2 text-center border-t">
-                    <Button variant="link" className="text-sm">
-                      View all {demandForecast.length} demand entries
-                    </Button>
-                  </div>
-                )}
               </div>
             </CardContent>
           )}
         </Card>
 
-        {/* Summary Cards - keep existing */}
+        {/* Summary Cards */}
         <div className="grid gap-4 md:grid-cols-4">
-          {/* ... existing summary cards ... */}
           <Card>
             <CardContent className="pt-6">
               <div className="text-center">
@@ -618,9 +560,6 @@ export default function SupplyPlanning() {
                   <p className="text-2xl font-bold">{totalDemand.toFixed(1)}</p>
                 </div>
                 <p className="text-sm text-muted-foreground">Total Demand (tons)</p>
-                <p className="text-xs text-blue-600 mt-1">
-                  Next 30 days
-                </p>
               </div>
             </CardContent>
           </Card>
@@ -633,9 +572,6 @@ export default function SupplyPlanning() {
                   <p className="text-2xl font-bold">{totalSupply.toFixed(1)}</p>
                 </div>
                 <p className="text-sm text-muted-foreground">Total Supply (tons)</p>
-                <p className="text-xs text-green-600 mt-1">
-                  Planned supply
-                </p>
               </div>
             </CardContent>
           </Card>
@@ -648,9 +584,6 @@ export default function SupplyPlanning() {
                   <p className="text-2xl font-bold">{totalBalance.toFixed(1)}</p>
                 </div>
                 <p className="text-sm text-muted-foreground">Overall Balance</p>
-                <p className={`text-xs mt-1 ${totalBalance === 0 ? 'text-green-600' : totalBalance < 0 ? 'text-red-600' : 'text-blue-600'}`}>
-                  {totalBalance === 0 ? 'Balanced' : totalBalance < 0 ? 'Shortage' : 'Oversupply'}
-                </p>
               </div>
             </CardContent>
           </Card>
@@ -663,15 +596,12 @@ export default function SupplyPlanning() {
                   <p className="text-2xl font-bold">{shortageDays}</p>
                 </div>
                 <p className="text-sm text-muted-foreground">Shortage Days</p>
-                <p className="text-xs text-purple-600 mt-1">
-                  {metDays} days demand met
-                </p>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Tabs for different views - keep existing */}
+        {/* Tabs for different views */}
         <Tabs defaultValue="balance" className="space-y-4">
           <TabsList>
             <TabsTrigger value="balance">Supply-Demand Balance</TabsTrigger>
@@ -722,22 +652,12 @@ export default function SupplyPlanning() {
                       No Supply-Demand Data
                     </h3>
                     <p className="text-gray-500 mb-6 max-w-md mx-auto">
-                      {allocations.length === 0 
-                        ? 'Add farmer allocations first. Allocate farmers in the Farmers page.' 
-                        : 'Add demand forecasts to see supply-demand balance.'}
+                      Add demand forecasts to see supply-demand balance.
                     </p>
-                    <div className="flex gap-3 justify-center">
-                      {allocations.length === 0 && (
-                        <Button onClick={() => window.location.href = '/farmers'}>
-                          <Users className="h-4 w-4 mr-2" />
-                          Go to Farmers
-                        </Button>
-                      )}
-                      <Button onClick={() => setIsAddDemandDialogOpen(true)}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Demand
-                      </Button>
-                    </div>
+                    <Button onClick={() => setIsAddDemandDialogOpen(true)}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Demand
+                    </Button>
                   </div>
                 ) : (
                   <div className="rounded-lg border overflow-hidden">
@@ -1155,10 +1075,10 @@ export default function SupplyPlanning() {
                 <Button 
                   variant="outline"
                   className="w-full justify-start"
-                  onClick={() => window.location.href = '/farmers?action=allocate'}
+                  onClick={() => window.location.href = '/farmers'}
                 >
                   <Users className="h-4 w-4 mr-2" />
-                  Allocate More Farmers
+                  Go to Farmers
                 </Button>
                 <Button 
                   variant="outline"
@@ -1177,10 +1097,9 @@ export default function SupplyPlanning() {
                 </h4>
                 <ul className="text-sm text-blue-700 space-y-1">
                   <li>• Click <strong>Add Daily Demand</strong> to input demand forecasts</li>
-                  <li>• View supply-demand balance in the table</li>
+                  <li>• Each date can have its own unique demand</li>
                   <li>• <span className="font-medium">Red</span> = shortage, <span className="font-medium">Green</span> = balanced, <span className="font-medium">Blue</span> = oversupply</li>
                   <li>• Click <ChevronDown className="h-3 w-3 inline" /> to see farmer details</li>
-                  <li>• Request supplements to fill gaps</li>
                 </ul>
               </div>
             </CardContent>
@@ -1188,7 +1107,7 @@ export default function SupplyPlanning() {
         </div>
       </div>
 
-      {/* Add Demand Dialog - UPDATED */}
+      {/* Add Demand Dialog */}
       <Dialog open={isAddDemandDialogOpen} onOpenChange={setIsAddDemandDialogOpen}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -1296,7 +1215,7 @@ export default function SupplyPlanning() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Demand Dialog - UPDATED */}
+      {/* Edit Demand Dialog */}
       <Dialog open={isEditDemandDialogOpen} onOpenChange={setIsEditDemandDialogOpen}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -1401,7 +1320,7 @@ export default function SupplyPlanning() {
         </DialogContent>
       </Dialog>
 
-      {/* Send Order Dialog - keep existing */}
+      {/* Send Order Dialog */}
       <Dialog open={isOrderDialogOpen} onOpenChange={setIsOrderDialogOpen}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -1463,7 +1382,7 @@ export default function SupplyPlanning() {
         </DialogContent>
       </Dialog>
 
-      {/* Supplement Request Dialog - keep existing */}
+      {/* Supplement Request Dialog */}
       <Dialog open={isSupplementDialogOpen} onOpenChange={setIsSupplementDialogOpen}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
