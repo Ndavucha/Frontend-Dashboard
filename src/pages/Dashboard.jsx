@@ -19,7 +19,8 @@ import {
   Calendar,
   Truck,
   Target,
-  CheckSquare
+  CheckSquare,
+  ShoppingBag
 } from 'lucide-react';
 import { apiService } from '@/api/services';
 import { toast } from 'sonner';
@@ -133,6 +134,20 @@ export default function Dashboard() {
                       <FileText className="h-5 w-5 mr-2" />
                       View Setup Guide
                     </Link>
+                  </Button>
+                  <Button 
+                    asChild 
+                    size="lg" 
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <a 
+                      href="https://findfarmers.onrender.com" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                    >
+                      <ShoppingBag className="h-5 w-5 mr-2" />
+                      Find market here
+                    </a>
                   </Button>
                 </div>
               </div>
