@@ -1,4 +1,4 @@
-// src/pages/SupplyPlanning.jsx - FIXED WITH LOCALSTORAGE PERSISTENCE
+// src/pages/SupplyPlanning.jsx - FIXED WITH LOCALSTORAGE PERSISTENCE (Demand Forecast Tab Removed)
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -823,12 +823,11 @@ export default function SupplyPlanning() {
           </Card>
         </div>
 
-        {/* Tabs for different views */}
+        {/* Tabs for different views - Demand Forecast Tab Removed */}
         <Tabs defaultValue="balance" className="space-y-4">
           <TabsList>
             <TabsTrigger value="balance">Supply-Demand Balance</TabsTrigger>
-            <TabsTrigger value="demand">Demand Forecast</TabsTrigger>
-            <TabsTrigger value="supply">Supply Schedule</TabsTrigger>
+            <TabsTrigger value="supply">Demand/Supply Schedule</TabsTrigger>
           </TabsList>
 
           <TabsContent value="balance">
@@ -897,8 +896,8 @@ export default function SupplyPlanning() {
                       </TableHeader>
                       <TableBody>
                         {balanceData.map((item) => (
-                          <>
-                            <TableRow key={item.dateKey} className="hover:bg-muted/30">
+                          <React.Fragment key={item.dateKey}>
+                            <TableRow className="hover:bg-muted/30">
                               <TableCell>
                                 <Button
                                   variant="ghost"
@@ -1039,89 +1038,7 @@ export default function SupplyPlanning() {
                                 </TableCell>
                               </TableRow>
                             )}
-                          </>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="demand">
-            <Card>
-              <CardHeader>
-                <CardTitle>Demand Forecast</CardTitle>
-                <CardDescription>
-                  View and manage all demand forecasts
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {demandForecast.length === 0 ? (
-                  <div className="text-center py-12">
-                    <p className="text-gray-500">No demand forecasts added yet</p>
-                    <Button 
-                      className="mt-4"
-                      onClick={() => setIsAddDemandDialogOpen(true)}
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add First Demand
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="rounded-lg border overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Crop</TableHead>
-                          <TableHead>Variety</TableHead>
-                          <TableHead>Specifications</TableHead>
-                          <TableHead>Quantity (tons)</TableHead>
-                          <TableHead>Notes</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {demandForecast.map((demand) => (
-                          <TableRow key={demand.id}>
-                            <TableCell className="font-medium">
-                              {formatDate(demand.date)}
-                            </TableCell>
-                            <TableCell>{demand.cropType || 'Potatoes'}</TableCell>
-                            <TableCell>{demand.variety || '-'}</TableCell>
-                            <TableCell>
-                              {demand.specifications ? (
-                                <Badge variant="outline" className="bg-green-50">
-                                  {demand.specifications}
-                                </Badge>
-                              ) : '-'}
-                            </TableCell>
-                            <TableCell className="font-bold">
-                              {demand.quantity} tons
-                            </TableCell>
-                            <TableCell>{demand.notes || '-'}</TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end gap-2">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => openEditDemandDialog(demand)}
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleDeleteDemand(demand.id)}
-                                  className="text-red-500 hover:text-red-700"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
+                          </React.Fragment>
                         ))}
                       </TableBody>
                     </Table>
