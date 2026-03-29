@@ -1,4 +1,4 @@
-// src/pages/SupplyPlanning.jsx - FIXED WITH LOCALSTORAGE PERSISTENCE (Demand Forecast Tab Removed)
+// src/pages/SupplyPlanning.jsx - REFACTORED WITH DEMAND TAB AND SUPPLY SCHEDULE
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -255,7 +255,20 @@ export default function SupplyPlanning() {
 
   // ==================== DEMAND MANAGEMENT ====================
   
-  // Calculate supply-demand balance based on actual data
+  // Group demands by date for the Demand tab
+  const getDemandsByDate = () => {
+    const demandsByDate = {};
+    demandForecast.forEach(demand => {
+      const dateKey = new Date(demand.date).toISOString().split('T')[0];
+      if (!demandsByDate[dateKey]) {
+        demandsByDate[dateKey] = [];
+      }
+      demandsByDate[dateKey].push(demand);
+    });
+    return demandsByDate;
+  };
+
+  // Calculate supply-demand balance for Supply Schedule tab (pulls from Demand tab)
   const calculateSupplyDemandBalance = () => {
     const balanceData = [];
     
@@ -270,34 +283,45 @@ export default function SupplyPlanning() {
       allocationsByDate[dateKey].push(allocation);
     });
 
-    // Use actual demand forecasts
-    if (demandForecast.length > 0) {
-      demandForecast.forEach(demand => {
-        const dateKey = new Date(demand.date).toISOString().split('T')[0];
-        const dailyAllocations = allocationsByDate[dateKey] || [];
-        
-        const totalSupply = dailyAllocations.reduce((sum, a) => sum + (a.quantity || 0), 0);
-        const totalDemand = demand.quantity || 0;
-        const balance = totalSupply - totalDemand;
-        
-        balanceData.push({
-          id: demand.id,
-          date: demand.date,
-          dateKey,
-          demand: totalDemand,
-          supply: totalSupply,
-          balance,
-          status: balance === 0 ? 'met' : balance < 0 ? 'shortage' : 'oversupply',
-          allocations: dailyAllocations,
-          cropType: demand.cropType || 'Potatoes',
-          variety: demand.variety || '',
-          specifications: demand.specifications || '',
-          notes: demand.notes
-        });
-      });
-    }
+    // Group demands by date (pulling from demandForecast state)
+    const demandsByDate = {};
+    demandForecast.forEach(demand => {
+      const dateKey = new Date(demand.date).toISOString().split('T')[0];
+      if (!demandsByDate[dateKey]) {
+        demandsByDate[dateKey] = [];
+      }
+      demandsByDate[dateKey].push(demand);
+    });
 
-    // Sort by date
+    // Get all unique dates from both allocations and demands
+    const allDates = new Set([...Object.keys(allocationsByDate), ...Object.keys(demandsByDate)]);
+    
+    Array.from(allDates).sort().forEach(dateKey => {
+      const dailyAllocations = allocationsByDate[dateKey] || [];
+      const dailyDemands = demandsByDate[dateKey] || [];
+      
+      const totalSupply = dailyAllocations.reduce((sum, a) => sum + (a.quantity || 0), 0);
+      const totalDemand = dailyDemands.reduce((sum, d) => sum + (d.quantity || 0), 0);
+      const balance = totalSupply - totalDemand;
+      
+      // Get the first demand's details for display (if exists)
+      const primaryDemand = dailyDemands[0] || {};
+      
+      balanceData.push({
+        date: dateKey,
+        demand: totalDemand,
+        supply: totalSupply,
+        balance,
+        status: balance === 0 ? 'met' : balance < 0 ? 'shortage' : 'oversupply',
+        allocations: dailyAllocations,
+        demands: dailyDemands,
+        cropType: primaryDemand.cropType || 'Potatoes',
+        variety: primaryDemand.variety || '',
+        specifications: primaryDemand.specifications || '',
+        notes: primaryDemand.notes || ''
+      });
+    });
+
     return balanceData.sort((a, b) => new Date(a.date) - new Date(b.date));
   };
 
@@ -332,18 +356,6 @@ export default function SupplyPlanning() {
 
       if (!demandForm.quantity || parseFloat(demandForm.quantity) <= 0) {
         toast.error('Please enter a valid quantity');
-        return;
-      }
-
-      // Check if demand already exists for this specific date
-      const existingDemand = demandForecast.find(d => {
-        const demandDate = new Date(d.date).toISOString().split('T')[0];
-        const formDate = demandForm.date;
-        return demandDate === formDate;
-      });
-
-      if (existingDemand) {
-        toast.error(`Demand already exists for ${demandForm.date}. Please edit the existing demand instead.`);
         return;
       }
 
@@ -411,19 +423,6 @@ export default function SupplyPlanning() {
       if (!demandForm.quantity || parseFloat(demandForm.quantity) <= 0) {
         toast.error('Please enter a valid quantity');
         return;
-      }
-
-      // Check if changing date and new date already has demand (excluding current)
-      if (demandForm.date !== selectedDemand.date) {
-        const existingDemand = demandForecast.find(d => 
-          d.id !== selectedDemand.id && 
-          new Date(d.date).toISOString().split('T')[0] === demandForm.date
-        );
-
-        if (existingDemand) {
-          toast.error(`Demand already exists for ${demandForm.date}`);
-          return;
-        }
       }
 
       const updatedDemand = {
@@ -605,13 +604,17 @@ export default function SupplyPlanning() {
     }
   };
 
-  // Calculate totals
+  // Calculate totals from supply-demand balance
   const balanceData = calculateSupplyDemandBalance();
   const totalDemand = balanceData.reduce((sum, d) => sum + d.demand, 0);
   const totalSupply = balanceData.reduce((sum, d) => sum + d.supply, 0);
   const totalBalance = totalSupply - totalDemand;
   const shortageDays = balanceData.filter(d => d.status === 'shortage').length;
   const metDays = balanceData.filter(d => d.status === 'met').length;
+
+  // Group demands by date for the Demand tab
+  const demandsByDate = getDemandsByDate();
+  const sortedDates = Object.keys(demandsByDate).sort();
 
   if (loading) {
     return (
@@ -670,108 +673,6 @@ export default function SupplyPlanning() {
           </div>
         </div>
 
-        {/* Demand Input Section */}
-        <Card className="border-green-200 bg-green-50/30">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Target className="h-5 w-5 text-green-600" />
-                <CardTitle className="text-lg">Demand Input</CardTitle>
-              </div>
-              <Button 
-                size="sm"
-                onClick={() => setIsAddDemandDialogOpen(true)}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Daily Demand
-              </Button>
-            </div>
-            <CardDescription>
-              Input daily demand forecasts to plan supply requirements
-            </CardDescription>
-          </CardHeader>
-          
-          {demandForecast.length > 0 ? (
-            <CardContent>
-              <div className="rounded-lg border overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-green-100/50">
-                      <TableHead>Date</TableHead>
-                      <TableHead>Crop</TableHead>
-                      <TableHead>Variety</TableHead>
-                      <TableHead>Specifications</TableHead>
-                      <TableHead>Quantity (tons)</TableHead>
-                      <TableHead>Notes</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {demandForecast.map((demand) => (
-                      <TableRow key={demand.id} className="hover:bg-green-50/50">
-                        <TableCell className="font-medium">
-                          {formatDate(demand.date)}
-                        </TableCell>
-                        <TableCell>{demand.cropType || 'Potatoes'}</TableCell>
-                        <TableCell>{demand.variety || '-'}</TableCell>
-                        <TableCell>
-                          {demand.specifications ? (
-                            <Badge variant="outline" className="bg-green-50">
-                              {demand.specifications}
-                            </Badge>
-                          ) : '-'}
-                        </TableCell>
-                        <TableCell className="font-bold">
-                          {demand.quantity} tons
-                        </TableCell>
-                        <TableCell className="max-w-[200px] truncate">
-                          {demand.notes || '-'}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => openEditDemandDialog(demand)}
-                              className="h-8 w-8"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDeleteDemand(demand.id)}
-                              className="h-8 w-8 text-red-500 hover:text-red-700"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          ) : (
-            <CardContent>
-              <div className="text-center py-8">
-                <Target className="h-12 w-12 text-green-300 mx-auto mb-3" />
-                <p className="text-muted-foreground">No demand entries yet</p>
-                <Button 
-                  variant="outline" 
-                  className="mt-3"
-                  onClick={() => setIsAddDemandDialogOpen(true)}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Your First Demand
-                </Button>
-              </div>
-            </CardContent>
-          )}
-        </Card>
-
         {/* Summary Cards */}
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
@@ -823,24 +724,133 @@ export default function SupplyPlanning() {
           </Card>
         </div>
 
-        {/* Tabs for different views - Demand Forecast Tab Removed */}
-        <Tabs defaultValue="balance" className="space-y-4">
+        {/* Tabs - Demand and Supply Schedule */}
+        <Tabs defaultValue="demand" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="balance">Supply-Demand Balance</TabsTrigger>
-            <TabsTrigger value="supply">Demand/Supply Schedule</TabsTrigger>
+            <TabsTrigger value="demand">Demand</TabsTrigger>
+            <TabsTrigger value="supply">Demand-Supply Schedule</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="balance">
+          {/* DEMAND TAB - List of all entered orders organized by day */}
+          <TabsContent value="demand">
+            <Card>
+              <CardHeader>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Target className="h-5 w-5 text-green-600" />
+                      Daily Demand Orders
+                    </CardTitle>
+                    <CardDescription>
+                      All demand orders organized by date - Click "Add Demand" to create new orders
+                    </CardDescription>
+                  </div>
+                  <Button 
+                    onClick={() => setIsAddDemandDialogOpen(true)}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Demand
+                  </Button>
+                </div>
+              </CardHeader>
+              
+              <CardContent>
+                {demandForecast.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Target className="h-12 w-12 text-green-300 mx-auto mb-3" />
+                    <p className="text-muted-foreground">No demand orders yet</p>
+                    <Button 
+                      variant="outline" 
+                      className="mt-3"
+                      onClick={() => setIsAddDemandDialogOpen(true)}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Your First Demand Order
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {sortedDates.map((dateKey) => (
+                      <div key={dateKey} className="border rounded-lg overflow-hidden">
+                        <div className="bg-green-50 px-4 py-3 border-b">
+                          <h3 className="font-semibold text-green-800">
+                            {formatDate(dateKey)}
+                          </h3>
+                        </div>
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-gray-50">
+                              <TableHead>Crop</TableHead>
+                              <TableHead>Variety</TableHead>
+                              <TableHead>Specifications</TableHead>
+                              <TableHead>Quantity (tons)</TableHead>
+                              <TableHead>Notes</TableHead>
+                              <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {demandsByDate[dateKey].map((demand) => (
+                              <TableRow key={demand.id} className="hover:bg-green-50/50">
+                                <TableCell>{demand.cropType || 'Potatoes'}</TableCell>
+                                <TableCell>{demand.variety || '-'}</TableCell>
+                                <TableCell>
+                                  {demand.specifications ? (
+                                    <Badge variant="outline" className="bg-green-50">
+                                      {demand.specifications}
+                                    </Badge>
+                                  ) : '-'}
+                                </TableCell>
+                                <TableCell className="font-bold">
+                                  {demand.quantity} tons
+                                </TableCell>
+                                <TableCell className="max-w-[200px] truncate">
+                                  {demand.notes || '-'}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <div className="flex justify-end gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => openEditDemandDialog(demand)}
+                                      className="h-8 w-8"
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleDeleteDemand(demand.id)}
+                                      className="h-8 w-8 text-red-500 hover:text-red-700"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* DEMAND-SUPPLY SCHEDULE TAB - Pulls demand quantities from Demand tab */}
+          <TabsContent value="supply">
             <Card>
               <CardHeader>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div>
                     <CardTitle className="flex items-center gap-2">
                       <Scale className="h-5 w-5 text-primary" />
-                      Supply vs Demand Balance
+                      Demand-Supply Schedule
                     </CardTitle>
                     <CardDescription>
-                      Daily comparison of supply against company demand
+                      Daily comparison of demand (from Demand tab) against supply
                     </CardDescription>
                   </div>
                   <div className="flex gap-2">
@@ -870,10 +880,10 @@ export default function SupplyPlanning() {
                       <CalendarIcon className="h-8 w-8 text-gray-400" />
                     </div>
                     <h3 className="text-lg font-semibold text-gray-700 mb-2">
-                      No Supply-Demand Data
+                      No Schedule Data
                     </h3>
                     <p className="text-gray-500 mb-6 max-w-md mx-auto">
-                      Add demand forecasts to see supply-demand balance.
+                      Add demand orders in the Demand tab to see the schedule.
                     </p>
                     <Button onClick={() => setIsAddDemandDialogOpen(true)}>
                       <Plus className="h-4 w-4 mr-2" />
@@ -896,17 +906,17 @@ export default function SupplyPlanning() {
                       </TableHeader>
                       <TableBody>
                         {balanceData.map((item) => (
-                          <React.Fragment key={item.dateKey}>
+                          <React.Fragment key={item.date}>
                             <TableRow className="hover:bg-muted/30">
                               <TableCell>
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  onClick={() => toggleRowExpansion(item.dateKey)}
+                                  onClick={() => toggleRowExpansion(item.date)}
                                   className="h-8 w-8"
                                 >
                                   <ChevronDown className={`h-4 w-4 transition-transform ${
-                                    expandedRow === item.dateKey ? 'rotate-180' : ''
+                                    expandedRow === item.date ? 'rotate-180' : ''
                                   }`} />
                                 </Button>
                               </TableCell>
@@ -948,7 +958,7 @@ export default function SupplyPlanning() {
                             </TableRow>
                             
                             {/* Expanded Row - Farmer Details */}
-                            {expandedRow === item.dateKey && (
+                            {expandedRow === item.date && (
                               <TableRow className="bg-blue-50">
                                 <TableCell colSpan={7}>
                                   <div className="p-4">
@@ -957,25 +967,6 @@ export default function SupplyPlanning() {
                                         <Users className="h-4 w-4" />
                                         Farmer Contributions for {formatDate(item.date)}
                                       </h4>
-                                      {item.id && (
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() => openEditDemandDialog({
-                                            id: item.id,
-                                            date: item.date,
-                                            quantity: item.demand,
-                                            cropType: item.cropType,
-                                            variety: item.variety,
-                                            specifications: item.specifications,
-                                            notes: item.notes
-                                          })}
-                                          className="h-8 text-xs"
-                                        >
-                                          <Edit className="h-3 w-3 mr-1" />
-                                          Edit Demand
-                                        </Button>
-                                      )}
                                     </div>
                                     
                                     {item.allocations.length === 0 ? (
@@ -1047,203 +1038,68 @@ export default function SupplyPlanning() {
               </CardContent>
             </Card>
           </TabsContent>
-
-          <TabsContent value="supply">
-            <Card>
-              <CardHeader>
-                <CardTitle>Supply Schedule</CardTitle>
-                <CardDescription>
-                  View all planned farmer allocations
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {allocations.length === 0 ? (
-                  <div className="text-center py-12">
-                    <p className="text-gray-500">No supply allocations yet</p>
-                    <Button 
-                      className="mt-4"
-                      onClick={() => window.location.href = '/farmers'}
-                    >
-                      <Users className="h-4 w-4 mr-2" />
-                      Go to Farmers
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="rounded-lg border overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Farmer</TableHead>
-                          <TableHead>Location</TableHead>
-                          <TableHead>Crop</TableHead>
-                          <TableHead>Quantity (tons)</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {allocations.map((allocation, index) => (
-                          <TableRow key={index}>
-                            <TableCell>{formatDate(allocation.date)}</TableCell>
-                            <TableCell className="font-medium">{allocation.farmerName}</TableCell>
-                            <TableCell>{allocation.farmerCounty}</TableCell>
-                            <TableCell>{allocation.farmerCrop}</TableCell>
-                            <TableCell>{allocation.quantity} tons</TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className="bg-blue-50 text-blue-700">
-                                Scheduled
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setSelectedAllocation(allocation);
-                                  setOrderForm({
-                                    orderQuantity: allocation.quantity.toString(),
-                                    orderNotes: ''
-                                  });
-                                  setIsOrderDialogOpen(true);
-                                }}
-                              >
-                                <Send className="h-4 w-4 mr-1" />
-                                Order
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
         </Tabs>
 
-        {/* Summary Stats */}
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Gap Analysis */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-amber-600" />
-                Gap Analysis Summary
-              </CardTitle>
-              <CardDescription>Supply-demand gap insights</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="text-center p-3 bg-red-50 rounded-lg border border-red-200">
-                    <p className="text-sm text-red-600 font-medium">Total Shortage</p>
-                    <p className="text-2xl font-bold text-red-600 mt-2">
-                      {balanceData.filter(d => d.status === 'shortage')
-                        .reduce((sum, d) => sum + Math.abs(d.balance), 0).toFixed(1)} tons
-                    </p>
-                  </div>
-                  <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-200">
-                    <p className="text-sm text-blue-600 font-medium">Total Oversupply</p>
-                    <p className="text-2xl font-bold text-blue-600 mt-2">
-                      {balanceData.filter(d => d.status === 'oversupply')
-                        .reduce((sum, d) => sum + d.balance, 0).toFixed(1)} tons
-                    </p>
-                  </div>
+        {/* Gap Analysis Summary - Only */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-amber-600" />
+              Gap Analysis Summary
+            </CardTitle>
+            <CardDescription>Supply-demand gap insights</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center p-3 bg-red-50 rounded-lg border border-red-200">
+                  <p className="text-sm text-red-600 font-medium">Total Shortage</p>
+                  <p className="text-2xl font-bold text-red-600 mt-2">
+                    {balanceData.filter(d => d.status === 'shortage')
+                      .reduce((sum, d) => sum + Math.abs(d.balance), 0).toFixed(1)} tons
+                  </p>
                 </div>
-                
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <h4 className="font-medium text-gray-800 mb-2">Status Distribution</h4>
-                  <div className="space-y-2">
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-red-600">Shortage Days</span>
-                        <span>{shortageDays} days</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
-                          className="bg-red-600 h-2 rounded-full" 
-                          style={{ width: `${balanceData.length > 0 ? (shortageDays / balanceData.length) * 100 : 0}%` }}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-green-600">Demand Met</span>
-                        <span>{metDays} days</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
-                          className="bg-green-600 h-2 rounded-full" 
-                          style={{ width: `${balanceData.length > 0 ? (metDays / balanceData.length) * 100 : 0}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
+                <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-sm text-blue-600 font-medium">Total Oversupply</p>
+                  <p className="text-2xl font-bold text-blue-600 mt-2">
+                    {balanceData.filter(d => d.status === 'oversupply')
+                      .reduce((sum, d) => sum + d.balance, 0).toFixed(1)} tons
+                  </p>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Send className="h-5 w-5 text-green-600" />
-                Quick Actions
-              </CardTitle>
-              <CardDescription>Manage supply and orders</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <Button 
-                  className="w-full justify-start"
-                  onClick={() => setIsAddDemandDialogOpen(true)}
-                >
-                  <Target className="h-4 w-4 mr-2" />
-                  Add Demand Forecast
-                </Button>
-                <Button 
-                  className="w-full justify-start"
-                  onClick={() => setIsSupplementDialogOpen(true)}
-                >
-                  <ShoppingCart className="h-4 w-4 mr-2" />
-                  Request Supplement
-                </Button>
-                <Button 
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={() => window.location.href = '/farmers'}
-                >
-                  <Users className="h-4 w-4 mr-2" />
-                  Go to Farmers
-                </Button>
-                <Button 
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={fetchData}
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Refresh Data
-                </Button>
               </div>
               
-              <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <h4 className="font-medium text-blue-800 mb-2 flex items-center gap-2">
-                  <Info className="h-4 w-4" />
-                  Data Persistence Info
-                </h4>
-                <ul className="text-sm text-blue-700 space-y-1">
-                  <li>✓ Data is saved automatically in your browser</li>
-                  <li>✓ Data persists even after closing the browser</li>
-                  <li>✓ Data is not lost when navigating between pages</li>
-                  <li>✓ Clear data button removes all saved entries</li>
-                </ul>
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <h4 className="font-medium text-gray-800 mb-2">Status Distribution</h4>
+                <div className="space-y-2">
+                  <div>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-red-600">Shortage Days</span>
+                      <span>{shortageDays} days</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-red-600 h-2 rounded-full" 
+                        style={{ width: `${balanceData.length > 0 ? (shortageDays / balanceData.length) * 100 : 0}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-green-600">Demand Met</span>
+                      <span>{metDays} days</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-green-600 h-2 rounded-full" 
+                        style={{ width: `${balanceData.length > 0 ? (metDays / balanceData.length) * 100 : 0}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Add Demand Dialog */}
