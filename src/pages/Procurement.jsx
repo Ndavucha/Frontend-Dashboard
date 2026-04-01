@@ -1071,28 +1071,36 @@ export default function Procurement() {
         </TabsContent>
 
         {/* FarmMall Tab */}
-        <TabsContent value="farmmall" className="animate-fade-in space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <ShoppingBag className="h-5 w-5 text-primary" />
-                    FarmMall Marketplace
-                  </CardTitle>
-                  <CardDescription>
-                    Browse farmers and create orders from the FarmMall marketplace
-                  </CardDescription>
-                </div>
-                <Button
-                  variant="outline"
-                  onClick={() => window.open('https://farmmall.co.ke', '_blank')}
-                >
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Visit FarmMall
-                </Button>
-              </div>
-            </CardHeader>
+<TabsContent value="farmmall" className="animate-fade-in space-y-6">
+  <Card>
+    <CardHeader>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <ShoppingBag className="h-5 w-5 text-primary" />
+            FarmMall Marketplace
+          </CardTitle>
+          <CardDescription>
+            Browse farmers and create orders from the FarmMall marketplace
+          </CardDescription>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => window.open('https://findfarmers.onrender.com/#/marketplace', '_blank')}
+          >
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Visit FarmMall
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setActiveTab('overview')}
+          >
+            Return
+          </Button>
+        </div>
+      </div>
+    </CardHeader>
             
             <CardContent>
               {/* Search and Filters */}
