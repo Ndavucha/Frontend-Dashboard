@@ -17,7 +17,7 @@ export default function FarmMall() {
         <p className="text-gray-600 mb-4">Please wait while we take you to the marketplace.</p>
         <Button 
           variant="outline" 
-          onClick={() => window.location.href = '/dashboard'}
+          onClick={() => window.location.href = '/overview'}
           className="gap-2"
         >
           <ArrowLeft className="h-4 w-4" />
